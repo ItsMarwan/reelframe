@@ -109,6 +109,7 @@ function appendVideoCards(count){
     const card = document.createElement('div');
     card.className = 'vcard';
     card.dataset.idx = idx;
+    card._rfItem = item;
     card.innerHTML = `
       <div class="vcard-thumb">
         ${isWatchLater(item)?'<span class="vcard-badge">Watch later</span>':''}

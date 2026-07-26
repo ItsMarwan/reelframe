@@ -45,6 +45,7 @@ function renderImageGrid(){
 function createPinCard(item, opts = {}){
   const el = document.createElement('div');
   el.className = 'pin-item';
+  el._rfItem = item;
   el.innerHTML = `
     ${opts.forYou ? '<span class="pin-badge">For You</span>' : ''}
     <img alt="${escapeAttr(item.name)}" loading="lazy" decoding="async" fetchpriority="low">

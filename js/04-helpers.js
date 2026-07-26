@@ -143,3 +143,55 @@ function watchedProgressHTML(item){
   if(!p || !p.percent || p.percent <= 0) return '';
   return `<div class="vcard-watched-bar"><div class="vcard-watched-fill" style="width:${Math.min(100, Math.round(p.percent*100))}%"></div></div>`;
 }
+
+/* ==========================================================================
+   Stalled-thumbnail watcher — a thumbnail can fail to arrive for reasons
+   that are worth quietly retrying rather than leaving the card stuck
+   forever: a paired-device request that got dropped, a video that
+   happened to be busy decoding elsewhere, a brief connection hiccup, etc.
+   Every few seconds this rechecks any card still missing a thumbnail and,
+   if — and only if — that card is actually visible on screen right now,
+   asks for it again. Off-screen cards are left alone entirely, so this
+   never burns bandwidth (particularly over a paired connection) on
+   something nobody's looking at.
+   ========================================================================== */
+const THUMB_RETRY_INTERVAL_MS = 4000;
+let thumbRetryTimer = null;
+
+function isElementVisibleOnScreen(el){
+  if(!el || !el.isConnected) return false;
+  const rect = el.getBoundingClientRect();
+  if(rect.width <= 0 && rect.height <= 0) return false; // hidden ancestor (e.g. [hidden] view) collapses to 0x0
+  const vh = window.innerHeight || document.documentElement.clientHeight;
+  const vw = window.innerWidth || document.documentElement.clientWidth;
+  return rect.bottom > 0 && rect.top < vh && rect.right > 0 && rect.left < vw;
+}
+
+function retryVisibleStalledThumbs(){
+  if(document.hidden) return; // tab isn't even being looked at — nothing to do
+  document.querySelectorAll('.vcard, .pin-item').forEach(el => {
+    const item = el._rfItem;
+    if(!item) return;
+    if(!isElementVisibleOnScreen(el)) return;
+
+    if(item.type === 'video'){
+      if(item.thumb || item.broken || item._metaPromise) return; // already have it, never will, or already trying
+      if(typeof loadCardThumb === 'function') loadCardThumb(el, item);
+    } else if(item.type === 'image' && item.pairRemote){
+      if(item.thumb) return;
+      if(typeof pairThumbWaiters !== 'undefined' && pairThumbWaiters.has(item.pairPath)) return; // already waiting on a response
+      const img = el.querySelector('img');
+      if(typeof registerPairThumbWaiter !== 'function' || typeof requestPairThumb !== 'function') return;
+      registerPairThumbWaiter(item.pairPath, (thumb) => {
+        item.thumb = thumb;
+        if(img) img.src = thumb;
+      });
+      requestPairThumb(item.pairPath);
+    }
+  });
+}
+
+function startThumbRetryWatcher(){
+  if(thumbRetryTimer) return;
+  thumbRetryTimer = setInterval(retryVisibleStalledThumbs, THUMB_RETRY_INTERVAL_MS);
+}

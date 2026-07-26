@@ -426,6 +426,63 @@ function buildPairedItem(mi){
   return base;
 }
 
+/* Snapshots only travel as metadata over the manifest (no image bytes —
+   that would bloat every pairing handshake even for snapshots nobody ever
+   looks at). Built the same way as buildPairedItem: thumb/full image are
+   pulled from the host on demand via the normal pairPath thumb/file
+   request flow, which already knows how to look items up in
+   state.snapshots on the host side. */
+function buildPairedSnapshotItem(ms){
+  return {
+    name: ms.name || `Snapshot ${new Date(ms.savedAt || Date.now()).toLocaleString()}`,
+    path: `__paired__/${ms.path}`,
+    pairPath: ms.path,
+    folderPath: [],
+    category: 'Snapshots',
+    type: 'image',
+    handle: null, file: null, url: null, blob: null,
+    size: ms.size || 0,
+    lastModified: ms.lastModified || Date.now(),
+    ext: 'png',
+    _rand: Math.random(),
+    duration: null,
+    thumb: null,
+    broken: false,
+    pairRemote: true,
+    source: 'snapshot',
+    videoName: ms.videoName || 'snapshot',
+    timestamp: ms.timestamp || 0,
+    savedAt: ms.savedAt || new Date().toISOString(),
+  };
+}
+
+/* Merges the host's Liked / Watch later / category favorites / history
+   into the guest's own state, converting each key/path to the
+   __paired__/ namespace so they line up with the paired item objects
+   built above. This is additive (union), so nothing the guest already
+   had is lost — and since state.pair.previousLibrary snapshots the
+   guest's own sets before this runs, restorePreviousLibrary can put things
+   back exactly as they were once pairing ends. */
+function applyPairedPersonalData(manifest){
+  (manifest.favorites || []).forEach(key => {
+    const converted = convertHostFavKey(key);
+    if(converted) state.favorites.add(converted);
+  });
+  (manifest.watchLater || []).forEach(key => {
+    const converted = convertHostFavKey(key);
+    if(converted) state.watchLater.add(converted);
+  });
+  (manifest.watchLaterConsumed || []).forEach(key => {
+    const converted = convertHostFavKey(key);
+    if(converted) state.watchLaterConsumed.add(converted);
+  });
+  (manifest.categoryFavorites || []).forEach(cat => state.categoryFavorites.add(cat));
+  const convertedHistory = (manifest.history || []).map(h => ({ ...h, path: `__paired__/${h.path}` }));
+  state.history = mergeHistoryArrays(state.history, convertedHistory);
+  updateFavCount();
+  updateWatchLaterButtons();
+}
+
 /* Swaps in the host's library, saving whatever was open first so it can
    be put back on teardown. Mirrors the tail end of launchWithHandle /
    launchDemoLibrary in 06-gate-and-preview.js. */
@@ -435,6 +492,12 @@ function activatePairedLibrary(manifest, hostRootName){
       rootHandle: state.rootHandle, rootName: state.rootName,
       rawVideos: state.rawVideos, rawImages: state.rawImages, rawAudio: state.rawAudio,
       excluded: state.excluded, isDemo: state.isDemo,
+      snapshots: state.snapshots,
+      favorites: new Set(state.favorites),
+      watchLater: new Set(state.watchLater),
+      watchLaterConsumed: new Set(state.watchLaterConsumed),
+      categoryFavorites: new Set(state.categoryFavorites),
+      history: state.history.slice(),
     };
   }
   state.rootHandle = null;
@@ -442,9 +505,11 @@ function activatePairedLibrary(manifest, hostRootName){
   state.rawVideos = (manifest.videos || []).map(buildPairedItem);
   state.rawImages = (manifest.images || []).map(buildPairedItem);
   state.rawAudio = (manifest.audio || []).map(buildPairedItem);
+  state.snapshots = (manifest.snapshots || []).map(buildPairedSnapshotItem);
   state.excluded = new Set();
   state.isDemo = false;
   applyExclusions();
+  applyPairedPersonalData(manifest);
 
   const appEl = document.getElementById('app');
   if(appEl.hidden){
@@ -470,14 +535,27 @@ function restorePreviousLibrary(){
   if(!prev){
     state.rootHandle = null; state.rootName = ''; state.rawVideos = []; state.rawImages = []; state.rawAudio = [];
     state.excluded = new Set();
+    state.snapshots = [];
   } else {
     state.rootHandle = prev.rootHandle; state.rootName = prev.rootName;
     state.rawVideos = prev.rawVideos; state.rawImages = prev.rawImages; state.rawAudio = prev.rawAudio;
     state.excluded = prev.excluded; state.isDemo = prev.isDemo;
+    state.snapshots = prev.snapshots || [];
+    // Put the guest's own Liked/Watch later/history back exactly as they
+    // were before pairing merged the host's in, and persist that so any
+    // paired-session data that got saved along the way (any toggle while
+    // paired calls the normal save*() functions) doesn't linger on disk.
+    state.favorites = prev.favorites; saveFavorites();
+    state.watchLater = prev.watchLater; saveWatchLater();
+    state.watchLaterConsumed = prev.watchLaterConsumed; saveWatchLaterConsumed();
+    state.categoryFavorites = prev.categoryFavorites; saveCategoryFavorites();
+    state.history = prev.history; saveHistory();
   }
   applyExclusions();
   document.getElementById('rootName').textContent = state.rootName || '—';
   updateTotalCount();
+  updateFavCount();
+  updateWatchLaterButtons();
   renderSidebar();
   renderActiveGrid();
 }
