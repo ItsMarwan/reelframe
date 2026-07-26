@@ -99,6 +99,10 @@ function coverArtHTML(item, size){
 
 function ensureAudioMeta(item){
   if(item._metaPromise) return item._metaPromise;
+  if(item.pairRemote){
+    item._metaPromise = Promise.resolve(item);
+    return item._metaPromise;
+  }
   item._metaPromise = (async () => {
     const tags = await parseId3Tags(item);
     if(tags.title) item.title = tags.title;

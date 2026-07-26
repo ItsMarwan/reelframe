@@ -108,11 +108,16 @@ function teardownShareHost(){
   if(row) row.hidden = true;
 }
 
-function waitForBufferedAmountLow(dc, threshold){
+function waitForBufferedAmountLow(dc, threshold, maxWaitMs = 15000){
   return new Promise((resolve) => {
     if(!dc){ resolve(); return; }
+    const start = Date.now();
     const check = () => {
+      // Channel died while we were waiting — don't hang forever, let the
+      // caller's own open/retry checks handle it.
+      if(dc.readyState !== 'open'){ resolve(); return; }
       if(dc.bufferedAmount <= threshold){ resolve(); return; }
+      if(Date.now() - start > maxWaitMs){ resolve(); return; }
       setTimeout(check, 50);
     };
     check();

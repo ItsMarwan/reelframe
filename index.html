@@ -12,7 +12,7 @@
   <meta name="theme-color" content="#e6a24c">
   <meta name="color-scheme" content="dark light">
 
-  <link rel="canonical" href="https://reelframe.app/">
+  <link rel="canonical" href="https://itsmarwan.github.io/">
 
   <!-- Icons -->
   <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
@@ -25,8 +25,8 @@
   <meta property="og:site_name" content="Reelframe">
   <meta property="og:title" content="Reelframe: Your Local Media Library">
   <meta property="og:description" content="A fast, local media library for organizing, browsing, and viewing your photos and videos.">
-  <meta property="og:url" content="https://reelframe.app/">
-  <meta property="og:image" content="https://reelframe.app/images/og-image.png">
+  <meta property="og:url" content="https://itsmarwan.github.io/">
+  <meta property="og:image" content="https://itsmarwan.github.io/images/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Reelframe preview">
@@ -35,7 +35,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Reelframe: Your Local Media Library">
   <meta name="twitter:description" content="A fast, local media library for organizing, browsing, and viewing your photos and videos.">
-  <meta name="twitter:image" content="https://reelframe.app/images/og-image.png">
+  <meta name="twitter:image" content="https://itsmarwan.github.io/images/og-image.png">
   <meta name="twitter:image:alt" content="Reelframe preview">
 
   <!-- Fonts -->
@@ -250,6 +250,10 @@
       <button class="tab" data-tab="view" role="tab" aria-selected="false">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M3 12h18M12 3c2.2 2.5 3.5 5.7 3.5 9s-1.3 6.5-3.5 9c-2.2-2.5-3.5-5.7-3.5-9s1.3-6.5 3.5-9Z" stroke="currentColor" stroke-width="1.7"/></svg>
         View
+      </button>
+      <button class="tab" data-tab="paired" role="tab" aria-selected="false" id="pairedTabBtn" hidden>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="9" r="3" stroke="currentColor" stroke-width="1.7"/><circle cx="16" cy="9" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M3 19c0-2.8 2.2-5 5-5s5 2.2 5 5M11 19c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        Paired
       </button>
     </nav>
 
@@ -676,6 +680,20 @@
         </div>
       </section>
 
+      <section id="pairedGrid" class="view" hidden>
+        <div class="view-header">
+          <h2>Paired: <span id="pairedRootName">—</span></h2>
+          <div class="sort-group" role="group" aria-label="Paired sections">
+            <button class="sort-btn active" data-paired-section="videos">Videos</button>
+            <button class="sort-btn" data-paired-section="images">Photos</button>
+            <button class="sort-btn" data-paired-section="audio">Music</button>
+          </div>
+        </div>
+        <p class="modal-sub" id="pairedLocalityBadge" style="padding:0 0 14px;" hidden></p>
+        <div id="pairedGridWrap" class="video-grid"></div>
+        <p id="pairedEmpty" class="empty-state" hidden>Nothing here yet.</p>
+      </section>
+
       <section id="musicGrid" class="view" hidden>
         <div class="view-header">
           <h2 id="musicHeading">All tracks</h2>
@@ -962,9 +980,17 @@
         </div>
         <button id="findDuplicatesBtn" class="btn-ghost small" type="button">Find duplicates</button>
       </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Pair with another device</div>
+          <div class="setting-desc">Let a phone or another computer browse this library live. Nothing is uploaded, and it's gone the moment the pairing ends here.</div>
+        </div>
+        <button id="openPairModalBtn" class="btn-ghost small" type="button">Pair devices</button>
+      </div>
     </div>
   </div>
 </div>
+
 
 <div id="shareModalBackdrop" class="modal-backdrop" hidden>
   <div class="modal">
@@ -1078,6 +1104,36 @@
       <div class="share-code-row">
         <input id="partyJoinInput" class="share-code-input" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="8" placeholder="Enter their code">
         <button id="partyJoinBtn" class="btn-ghost small" type="button">Join</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="pairModalBackdrop" class="modal-backdrop" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Pair devices</h3>
+      <button id="pairModalClose" class="btn-icon" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <p class="modal-sub">Share this code (or QR) with the other device so it can browse this library live. It streams over your local network automatically when possible, and over the internet otherwise.</p>
+    <div class="modal-list">
+      <div class="setting-row">
+        <div class="setting-text"><div class="setting-desc" id="pairStatusText">Setting up…</div></div>
+        <div id="pairWaitingSpinner" class="pair-spinner" hidden></div>
+        <button id="pairEndBtn" class="btn-ghost small" type="button">End / Leave</button>
+      </div>
+      <div class="share-qr-wrap"><div id="pairQrCode" class="share-qr-code"></div></div>
+      <div class="share-code-row">
+        <div class="share-code-display" id="pairCodeDisplay">······</div>
+        <button id="pairCodeCopyBtn" class="btn-ghost small" type="button">Copy code</button>
+      </div>
+      <div id="pairPeersList" class="party-peers-list" hidden></div>
+      <div class="modal-sub" style="margin:16px 0 6px; font-weight:600; color:var(--text-dim); padding:0;">Or join a paired library</div>
+      <div class="share-code-row">
+        <input id="pairJoinInput" class="share-code-input" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="8" placeholder="Enter their code">
+        <button id="pairJoinBtn" class="btn-ghost small" type="button">Join</button>
       </div>
     </div>
   </div>
@@ -1285,5 +1341,6 @@
 <script src="js/27-watch-party.js"></script>
 <script src="js/28-keyboard-shortcuts.js"></script>
 <script src="js/29-view-tab.js"></script>
+<script src="js/30-pair-mode.js"></script>
 </body>
 </html>

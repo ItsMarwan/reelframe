@@ -122,6 +122,22 @@ function ensureItemUrl(item){
   return item.url;
 }
 
+/* Same idea as ensureItemUrl, but for an item whose bytes live on a
+   paired device: there's nothing to hand back synchronously, so this
+   actually goes and fetches them (once — cached on item.url after,
+   same as a normal local item) instead of permanently returning ''. */
+async function ensureItemUrlAsync(item){
+  if(item.url) return item.url;
+  if(item.file){ item.url = URL.createObjectURL(item.file); return item.url; }
+  if(item.pairRemote){
+    const blob = await requestPairFile(item.pairPath);
+    item.file = blob;
+    item.url = URL.createObjectURL(blob);
+    return item.url;
+  }
+  return '';
+}
+
 function watchedProgressHTML(item){
   const p = getWatchProgress(item);
   if(!p || !p.percent || p.percent <= 0) return '';

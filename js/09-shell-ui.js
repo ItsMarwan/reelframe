@@ -80,7 +80,7 @@ function showView(id){
     }
   }
 
-  ['videosGrid','videoWatch','imagesGrid','imageFocus','legalView','musicGrid','viewGrid'].forEach(v => {
+  ['videosGrid','videoWatch','imagesGrid','imageFocus','legalView','musicGrid','viewGrid','pairedGrid'].forEach(v => {
     document.getElementById(v).hidden = (v !== id);
   });
   document.getElementById('app').classList.toggle('watch-mode', id === 'videoWatch');

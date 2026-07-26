@@ -102,8 +102,18 @@ function openWatch(item, opts = {}){
   });
   state.captionsEnabled = false;
   updateCaptionButtonUI();
-  player.src = ensureItemUrl(item);
-  player.play().catch(()=>{});
+  if(item.pairRemote){
+    player.removeAttribute('src');
+    toast(`Loading "${item.name}" from the paired device…`);
+    ensureItemUrlAsync(item).then(src => {
+      if(state.currentVideo !== item) return;
+      player.src = src;
+      player.play().catch(()=>{});
+    }).catch(() => toast("Couldn't load that video from the paired device."));
+  } else {
+    player.src = ensureItemUrl(item);
+    player.play().catch(()=>{});
+  }
 
   loadCaptionsForItem(item).then(saved => {
     if(saved && state.currentVideo === item){

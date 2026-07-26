@@ -33,8 +33,18 @@ function playTrackAt(idx){
   const audio = document.getElementById('musicAudioEl');
   const video = document.getElementById('videoPlayer');
   if(video && !video.paused) video.pause();
-  audio.src = ensureItemUrl(item);
-  audio.play().catch(() => {});
+  if(item.pairRemote){
+    audio.removeAttribute('src');
+    toast(`Loading "${trackTitle(item)}" from the paired device…`);
+    ensureItemUrlAsync(item).then(src => {
+      if(currentTrack() !== item) return;
+      audio.src = src;
+      audio.play().catch(() => {});
+    }).catch(() => toast("Couldn't load that track from the paired device."));
+  } else {
+    audio.src = ensureItemUrl(item);
+    audio.play().catch(() => {});
+  }
   ensureAudioMeta(item).then(() => { if(currentTrack() === item) loadTrackIntoBar(item); });
   loadTrackIntoBar(item);
   document.getElementById('musicPlayerBar').hidden = false;

@@ -3,6 +3,24 @@
    ========================================================================== */
 function ensureVideoMeta(item){
   if(item._metaPromise) return item._metaPromise;
+
+  /* Paired items have no local file to reseek/redraw — pull a
+     ready-made thumbnail from the host instead of downloading the
+     whole video just to grab one frame. */
+  if(item.pairRemote){
+    item._metaPromise = new Promise((resolve) => {
+      if(item.thumb){ resolve(item); return; }
+      const timer = setTimeout(() => { item._metaPromise = null; resolve(item); }, 8000);
+      const isFirstWaiter = registerPairThumbWaiter(item.pairPath, (thumb) => {
+        clearTimeout(timer);
+        item.thumb = thumb;
+        resolve(item);
+      });
+      if(isFirstWaiter) requestPairThumb(item.pairPath);
+    });
+    return item._metaPromise;
+  }
+
   item._metaPromise = new Promise((resolve) => {
     const src = ensureItemUrl(item);
     if(!src){ resolve(item); return; }
@@ -182,6 +200,7 @@ function attachHoverPreview(card, item, thumbSelector = '.vcard-thumb'){
 
   function startPreview(){
     if(active || !thumbBox.isConnected) return;
+    if(item.pairRemote) return; // no live-preview scrub for paired items — would mean pulling the whole file just to hover
     active = true;
     ensureVideoMeta(item).then(() => {
       if(!active) return;

@@ -59,6 +59,7 @@ async function initAppUI(){
     bindKeyboardShortcutsUI();
     bindViewTab();
     bindRefreshLibraryButton();
+    consumePairParamIfPresent();
     window.addEventListener('popstate', syncViewFromURL);
     appBound = true;
     // Warm the captions model in the background once things settle, so it's

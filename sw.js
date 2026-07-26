@@ -1,4 +1,4 @@
-const CACHE_NAME = 'reelframe-shell-v2';
+const CACHE_NAME = 'reelframe-shell-v4';
 const SHELL_ASSETS = [
   './', './index.html', './css/style.css',
   './js/01-constants.js', './js/03-storage.js', './js/02-state.js',

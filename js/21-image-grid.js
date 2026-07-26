@@ -53,7 +53,21 @@ function createPinCard(item, opts = {}){
     ${item.source === 'snapshot' ? '<div class="pin-checkbox"></div>' : ''}
   `;
   const img = el.querySelector('img');
-  img.src = ensureItemUrl(item);
+
+  /* Paired photos have no local file — the grid only needs a small
+     preview, so ask the host for a thumb instead of the full-size
+     original (that only gets pulled when the photo is actually opened
+     in Focus view, via ensureItemUrlAsync). */
+  if(item.pairRemote){
+    if(item.thumb){
+      img.src = item.thumb;
+    } else {
+      const isFirstWaiter = registerPairThumbWaiter(item.pairPath, (thumb) => { item.thumb = thumb; img.src = thumb; });
+      if(isFirstWaiter) requestPairThumb(item.pairPath);
+    }
+  } else {
+    img.src = ensureItemUrl(item);
+  }
 
   if(item.source === 'snapshot'){
     const checkbox = el.querySelector('.pin-checkbox');

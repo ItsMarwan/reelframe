@@ -2068,3 +2068,15 @@ img, video{
   background: rgba(230,162,76,.1); padding: 3px 9px; border-radius:6px;
 }
 
+.pair-downloading{ position:relative; pointer-events:none; opacity:.6; }
+.pair-downloading::after{
+  content:''; position:absolute; inset:0; margin:auto; width:26px; height:26px;
+  border:3px solid rgba(255,255,255,.25); border-top-color: var(--amber);
+  border-radius:50%; animation: iconSpin .8s linear infinite;
+}
+
+.pair-spinner{
+  width:18px; height:18px; border-radius:50%; flex:0 0 auto;
+  border:2px solid var(--border); border-top-color: var(--amber);
+  animation: iconSpin .8s linear infinite;
+}

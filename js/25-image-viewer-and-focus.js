@@ -245,7 +245,13 @@ function openFocus(item, opts = {}){
   showView('imageFocus');
   if(opts.push !== false) history.pushState(null, '', `?p=${encodeURIComponent(item.path)}`);
   const focusImgEl = document.getElementById('focusImg');
-  focusImgEl.src = ensureItemUrl(item);
+  if(item.pairRemote){
+    focusImgEl.removeAttribute('src');
+    ensureItemUrlAsync(item).then(src => { if(state.currentImage === item) focusImgEl.src = src; })
+      .catch(() => toast("Couldn't load that photo from the paired device."));
+  } else {
+    focusImgEl.src = ensureItemUrl(item);
+  }
   focusImgEl.alt = item.name;
   focusImgEl.onclick = () => openImagePop(item);
   document.getElementById('focusTitle').textContent = item.name;

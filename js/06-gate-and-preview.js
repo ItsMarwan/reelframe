@@ -20,9 +20,10 @@ async function launchWithHandle(handle){
   if(state.lockEnabled && state.lockPassword){
     showLockGate();
   }
-  showLoadingScreen(`Reading “${handle.name}”`);
+  showLoadingScreen(`Reading "${handle.name}"`);
   try{
-    const { videos, images, audio } = await scanDirectory(handle, updateLoadingProgress);
+    const excluded = loadExcluded(handle.name);
+    const { videos, images, audio } = await scanDirectory(handle, updateLoadingProgress, excluded);
     if(videos.length === 0 && images.length === 0 && audio.length === 0){
       await hideLoadingScreen();
       gateEl.style.display = 'flex';
@@ -36,7 +37,7 @@ async function launchWithHandle(handle){
     state.rawVideos = videos;
     state.rawImages = images;
     state.rawAudio = audio;
-    state.excluded = loadExcluded(handle.name);
+    state.excluded = excluded;
     applyExclusions();
     await hideLoadingScreen();
     appEl.hidden = false;
@@ -276,7 +277,7 @@ async function refreshLibrary(){
   const buttons = [document.getElementById('refreshLibraryBtn'), document.getElementById('mobileRefreshBtn')].filter(Boolean);
   buttons.forEach(b => { b.disabled = true; b.classList.add('refreshing'); });
   try{
-    const { videos, images, audio } = await scanDirectory(state.rootHandle);
+    const { videos, images, audio } = await scanDirectory(state.rootHandle, null, state.excluded);
     state.rawVideos = mergeScannedItems(state.rawVideos, videos);
     state.rawImages = mergeScannedItems(state.rawImages, images);
     state.rawAudio = mergeScannedItems(state.rawAudio, audio);
