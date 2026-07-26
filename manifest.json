@@ -1,0 +1,12 @@
+{
+  "name": "Reelframe",
+  "short_name": "Reelframe",
+  "description": "A private, local gallery for the videos and photos already on your machine.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#121319",
+  "theme_color": "#e6a24c",
+  "icons": [
+    { "src": "images/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -1,0 +1,5 @@
+User-agent: *
+
+Allow: /
+
+Sitemap: https://itsmarwan.github.com/reelframe/sitemap.xml
