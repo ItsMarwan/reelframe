@@ -882,6 +882,26 @@ a, button:focus-visible, input:focus-visible, [tabindex]:focus-visible{
 }
 .player-progress:hover .player-progress-thumb, .player-progress.dragging .player-progress-thumb{ opacity:1; }
 
+.player-scrub-preview{
+  position:absolute; bottom: calc(100% + 12px); left:0;
+  width:160px;
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  pointer-events:none; z-index:5;
+  transition: opacity .1s ease;
+}
+.player-scrub-preview[hidden]{ display:none; }
+.player-scrub-preview-frame{
+  width:160px; aspect-ratio:16/9; border-radius:8px; overflow:hidden;
+  background:#000; border:1px solid rgba(255,255,255,.18);
+  box-shadow: 0 12px 28px rgba(0,0,0,.55);
+}
+.player-scrub-preview-frame canvas{ width:100%; height:100%; display:block; }
+.player-scrub-time{
+  font-family: var(--mono-font); font-size:11px; font-weight:600; color:#fff;
+  background: rgba(10,10,12,.78); padding:2px 8px; border-radius:6px;
+  letter-spacing:.02em;
+}
+
 .player-controls-row{
   display:flex; align-items:center; flex-wrap:nowrap;
   gap: clamp(1px, 1vw, 8px);

@@ -662,6 +662,72 @@ function initCustomPlayer(){
   progress.addEventListener('pointerup', endSeek);
   progress.addEventListener('pointercancel', endSeek);
 
+  /* ---------- Scrub preview: mini thumbnail while hovering/dragging the timeline ---------- */
+  const scrubPreview = document.getElementById('playerScrubPreview');
+  const scrubCanvas = document.getElementById('playerScrubCanvas');
+  const scrubTimeEl = document.getElementById('playerScrubTime');
+  const scrubCtx = scrubCanvas ? scrubCanvas.getContext('2d') : null;
+  let scrubVideo = null;
+  let scrubSeekTimer = null;
+
+  function ensureScrubVideo(){
+    if(scrubVideo) return scrubVideo;
+    scrubVideo = document.createElement('video');
+    scrubVideo.muted = true;
+    scrubVideo.playsInline = true;
+    scrubVideo.preload = 'auto';
+    scrubVideo.style.display = 'none';
+    document.body.appendChild(scrubVideo);
+    scrubVideo.addEventListener('seeked', () => {
+      if(!scrubCtx) return;
+      try{ scrubCtx.drawImage(scrubVideo, 0, 0, scrubCanvas.width, scrubCanvas.height); }
+      catch(e){ /* frame not ready — leave last drawn frame in place */ }
+    });
+    return scrubVideo;
+  }
+
+  function updateScrubPreview(clientX){
+    if(!scrubPreview) return;
+    const item = state.currentVideo;
+    if(!item || item.pairRemote) { scrubPreview.hidden = true; return; } // no independent seek source for a paired item mid-stream
+    const rect = progress.getBoundingClientRect();
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    const pct = rect.width ? x / rect.width : 0;
+    const duration = isFinite(video.duration) && video.duration > 0 ? video.duration : (item.duration || 0);
+    if(!duration) return;
+    const time = pct * duration;
+
+    if(scrubTimeEl) scrubTimeEl.textContent = formatDuration(time);
+
+    const boxWidth = scrubPreview.offsetWidth || 160;
+    let left = x - boxWidth / 2;
+    left = Math.max(4, Math.min(left, rect.width - boxWidth - 4));
+    scrubPreview.style.left = `${left}px`;
+
+    const src = ensureItemUrl(item);
+    if(!src) return;
+    const sv = ensureScrubVideo();
+    if(sv.src !== src) sv.src = src;
+
+    clearTimeout(scrubSeekTimer);
+    scrubSeekTimer = setTimeout(() => {
+      try{ sv.currentTime = time; }catch(e){ /* ignore — will retry on next move */ }
+    }, 60);
+  }
+
+  if(scrubPreview){
+    progress.addEventListener('pointerenter', () => {
+      if(state.currentVideo && state.currentVideo.type === 'video' && !state.currentVideo.pairRemote){
+        scrubPreview.hidden = false;
+      }
+    });
+    progress.addEventListener('pointerleave', () => { scrubPreview.hidden = true; });
+    progress.addEventListener('pointermove', (e) => {
+      if(scrubPreview.hidden && state.currentVideo && !state.currentVideo.pairRemote) scrubPreview.hidden = false;
+      updateScrubPreview(e.clientX);
+    });
+  }
+
   const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
   speedBtn.addEventListener('click', (e) => {
     e.stopPropagation();
