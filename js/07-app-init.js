@@ -293,3 +293,10 @@ function goToGrid(tab){
   pushCategoryUrl(tab);          // was clearUrlParams()
   renderActiveGrid();
 }
+
+function goToCategory(tab, cat){
+  if(!cat) return;
+  state.cat[tab] = cat;
+  setTab(tab, { skipRender:true });
+  goToGrid(tab);
+}

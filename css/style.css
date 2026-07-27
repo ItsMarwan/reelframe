@@ -992,6 +992,8 @@ a, button:focus-visible, input:focus-visible, [tabindex]:focus-visible{
   .watch-side{ margin-top: 20px; }
 }
 
+.meta-cat-link{ cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px; }
+.meta-cat-link:hover{ color: var(--text); }
 
 video::cue{
   background: rgba(10, 10, 12, 0.8);

@@ -52,8 +52,10 @@ function buildAutoplayQueue(item){
 
 function applyWatchItemMeta(item){
   document.getElementById('watchTitle').textContent = item.name;
-  document.getElementById('watchMeta').textContent =
-    `${item.category} · ${formatDate(item.lastModified)} · ${formatBytes(item.size)}`;
+  const watchMetaEl = document.getElementById('watchMeta');
+  watchMetaEl.innerHTML = `<span class="meta-cat-link" data-cat="${escapeAttr(item.category)}" title="Jump to this category">${escapeHtml(item.category)}</span> · ${escapeHtml(formatDate(item.lastModified))} · ${escapeHtml(formatBytes(item.size))}`;
+  const watchCatLink = watchMetaEl.querySelector('.meta-cat-link');
+  if(watchCatLink) watchCatLink.addEventListener('click', () => goToCategory('videos', item.category));
 
   const favBtn = document.getElementById('watchFavBtn');
   favBtn.setAttribute('data-fav-key', favKey(item));

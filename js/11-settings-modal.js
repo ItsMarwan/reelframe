@@ -14,7 +14,7 @@ async function exportLibraryData(){
   const snapshotsPayload = (await Promise.all((state.snapshots || []).map(async (s) => {
     let data = null;
     try{ if(s.blob) data = await blobToDataURL(s.blob); }catch(e){ /* skip unreadable snapshot */ }
-    return data ? { videoName: s.videoName, timestamp: s.timestamp, savedAt: s.savedAt, data } : null;
+    return data ? { videoName: s.videoName, videoPath: s.videoPath || null, timestamp: s.timestamp, savedAt: s.savedAt, data } : null;
   }))).filter(Boolean);
 
   const payload = {
@@ -173,7 +173,7 @@ async function importLibraryData(file){
         if(!isReplace && existingKeys.has(key)) continue;
         try{
           const blob = await (await fetch(snap.data)).blob();
-          await saveSnapshot(blob, snap.videoName || 'Imported snapshot', snap.timestamp || 0);
+          await saveSnapshot(blob, snap.videoName || 'Imported snapshot', snap.timestamp || 0, snap.videoPath || null);
         }catch(e){ console.error('Failed to import a snapshot', e); }
       }
       await loadSnapshots();

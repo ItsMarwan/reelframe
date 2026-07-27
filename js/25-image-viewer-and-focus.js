@@ -239,6 +239,26 @@ function downloadSnapshotItem(item){
   toast('Snapshot downloaded');
 }
 
+function goToSnapshotSource(item){
+  if(!item || !item.videoPath){ toast('No source video recorded for this snapshot.'); return; }
+  const video = state.videos.find(v => v.path === item.videoPath);
+  if(!video){ toast('Could not find the original video — it may have been renamed, moved, or excluded.'); return; }
+  setTab('videos', { skipRender:true });
+  openWatch(video);
+  const player = document.getElementById('videoPlayer');
+  const seekToTimestamp = () => { player.currentTime = item.timestamp || 0; };
+  if(player.readyState >= 1) seekToTimestamp();
+  else player.addEventListener('loadedmetadata', seekToTimestamp, { once:true });
+}
+
+function locateItemPath(item){
+  if(!item) return;
+  const fullPath = state.rootName ? `${state.rootName}/${item.path}` : item.path;
+  copyTextToClipboard(fullPath).then(ok => {
+    toast(ok ? `Path copied: ${fullPath}` : `Path: ${fullPath}`);
+  });
+}
+
 function openFocus(item, opts = {}){
   state.currentImage = item;
   recordHistory(item);
@@ -255,8 +275,10 @@ function openFocus(item, opts = {}){
   focusImgEl.alt = item.name;
   focusImgEl.onclick = () => openImagePop(item);
   document.getElementById('focusTitle').textContent = item.name;
-  document.getElementById('focusMeta').textContent =
-    `${item.category} · ${formatDate(item.lastModified)} · ${formatBytes(item.size)}`;
+  const focusMetaEl = document.getElementById('focusMeta');
+  focusMetaEl.innerHTML = `<span class="meta-cat-link" data-cat="${escapeAttr(item.category)}" title="Jump to this category">${escapeHtml(item.category)}</span> · ${escapeHtml(formatDate(item.lastModified))} · ${escapeHtml(formatBytes(item.size))}`;
+  const focusCatLink = focusMetaEl.querySelector('.meta-cat-link');
+  if(focusCatLink) focusCatLink.addEventListener('click', () => goToCategory('images', item.category));
 
   const favBtn = document.getElementById('focusFavBtn');
   favBtn.setAttribute('data-fav-key', favKey(item));
@@ -277,12 +299,30 @@ function openFocus(item, opts = {}){
     downloadBtn.onclick = () => downloadSnapshotItem(item);
   }
 
+  const sourceBtn = document.getElementById('focusSourceBtn');
+  if(sourceBtn){
+    const hasSource = isSnapshot && !!item.videoPath;
+    sourceBtn.hidden = !hasSource;
+    if(hasSource){
+      const sourceLabel = document.getElementById('focusSourceLabel');
+      if(sourceLabel) sourceLabel.textContent = `fFrom: ${item.videoName || 'video'}`;
+      sourceBtn.title = `Jump to "${item.videoName || 'video'}" at ${formatDuration(item.timestamp || 0)}`;
+      sourceBtn.onclick = () => goToSnapshotSource(item);
+    }
+  }
+
+  const locateBtn = document.getElementById('focusLocateBtn');
+  if(locateBtn){
+    const canLocate = !isSnapshot && !item.remote && !item.pairRemote && !item.ephemeral;
+    locateBtn.hidden = !canLocate;
+    if(canLocate) locateBtn.onclick = () => locateItemPath(item);
+  }
+
   const focusSaveBtn = document.getElementById('focusSaveBtn');
   if(focusSaveBtn){
     focusSaveBtn.hidden = !item.remote;
     focusSaveBtn.onclick = () => promptSaveItem(item, 'images');
   }
-/* replace with */
   const SIDE_COUNT = 16;
   const FOR_YOU_MIX = 3;
   const isDesktopRow = window.innerWidth > FOCUS_ROW_DESKTOP_BREAKPOINT;

@@ -211,6 +211,7 @@ function buildSnapshotItem(snapshot){
     thumb: null,
     source: 'snapshot',
     videoName: snapshot.videoName || 'snapshot',
+    videoPath: snapshot.videoPath || null,
     timestamp: snapshot.timestamp || 0,
     savedAt: snapshot.savedAt || new Date().toISOString(),
   };
@@ -233,12 +234,12 @@ function loadSnapshots(){
   });
 }
 
-function saveSnapshot(blob, videoName, timestamp){
+function saveSnapshot(blob, videoName, timestamp, videoPath){
   return new Promise((resolve, reject) => {
     initIDBSnapshots().then(db => {
       const transaction = db.transaction([SNAPSHOTS_STORE], 'readwrite');
       const store = transaction.objectStore(SNAPSHOTS_STORE);
-      const snapshot = { blob, videoName, timestamp, savedAt: new Date().toISOString() };
+      const snapshot = { blob, videoName, timestamp, videoPath: videoPath || null, savedAt: new Date().toISOString() };
       const request = store.add(snapshot);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
@@ -383,9 +384,11 @@ function captureSnapshot(){
   const ctx = canvas.getContext('2d');
   ctx.drawImage(video, 0, 0);
   canvas.toBlob((blob) => {
-    const videoName = state.currentFileName || 'snapshot';
+    const sourceItem = state.currentVideo;
+    const videoName = (sourceItem && sourceItem.name) || 'snapshot';
+    const videoPath = sourceItem ? sourceItem.path : null;
     const timestamp = video.currentTime;
-    saveSnapshot(blob, videoName, timestamp).then(() => {
+    saveSnapshot(blob, videoName, timestamp, videoPath).then(() => {
       toast('Snapshot added to your gallery');
       updateTotalCount();
       renderSidebar();
