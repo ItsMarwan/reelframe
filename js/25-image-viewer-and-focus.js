@@ -305,7 +305,7 @@ function openFocus(item, opts = {}){
     sourceBtn.hidden = !hasSource;
     if(hasSource){
       const sourceLabel = document.getElementById('focusSourceLabel');
-      if(sourceLabel) sourceLabel.textContent = `fFrom: ${item.videoName || 'video'}`;
+      if(sourceLabel) sourceLabel.textContent = `From: ${item.videoName || 'video'}`;
       sourceBtn.title = `Jump to "${item.videoName || 'video'}" at ${formatDuration(item.timestamp || 0)}`;
       sourceBtn.onclick = () => goToSnapshotSource(item);
     }
