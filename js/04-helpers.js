@@ -24,6 +24,50 @@ async function copyTextToClipboard(text){
     return false;
   }
 }
+
+/* ==========================================================================
+   Deep-link parsing + persistent pair code — kept dependency-free so it
+   can run at the very top of boot, before PeerJS/pairing code has loaded.
+   ========================================================================== */
+const PAIR_CUSTOM_CODE_KEY = 'reelframe-pair-custom-code-v1';
+function loadCustomPairCode(){
+  try{ return (localStorage.getItem(PAIR_CUSTOM_CODE_KEY) || '').trim().toUpperCase(); }
+  catch(e){ return ''; }
+}
+function saveCustomPairCode(code){
+  try{ localStorage.setItem(PAIR_CUSTOM_CODE_KEY, (code || '').trim().toUpperCase()); }
+  catch(e){ /* ignore */ }
+}
+
+const DEEP_LINK_IGNORE_RE = /^(css\/|js\/|images\/|favicon\.svg$|manifest\.json$|sw\.js$|robots\.xml$|sitemap\.xml$|license\.md$|readme\.md$|index\.html$|404\.html$)/i;
+
+/* Parses a URL path like "/CODE/Folder/Sub/file.mp4" or "/CODE/file.jpg.image"
+   into { code, targetPath, imageOnly }. targetPath matches the item.path
+   format used everywhere else in the app (folder segments joined with "/",
+   no leading slash). Returns null if the path doesn't look like a deep link
+   at all (e.g. it's the site root, or one of the app's real static files). */
+function parseDeepLinkPath(){
+  let path = decodeURIComponent(location.pathname);
+  path = path.replace(/^\/+/, '').replace(/\/+$/, '');
+  if(!path) return null;
+  if(DEEP_LINK_IGNORE_RE.test(path)) return null;
+
+  const segments = path.split('/').filter(Boolean);
+  if(segments.length < 2) return null; // need at least CODE/file
+
+  const code = segments[0];
+  let last = segments[segments.length - 1];
+  let imageOnly = false;
+  if(/\.image$/i.test(last)){
+    imageOnly = true;
+    last = last.slice(0, -'.image'.length);
+  }
+  if(!last) return null;
+
+  const targetPath = [...segments.slice(1, -1), last].join('/');
+  return { code, targetPath, imageOnly };
+}
+
 function extOf(name){
   const i = name.lastIndexOf('.');
   return i === -1 ? '' : name.slice(i+1).toLowerCase();

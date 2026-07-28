@@ -327,7 +327,7 @@ function wirePairHostConnection(conn){
 function startPairHost(){
   teardownPairAll();
   if(typeof Peer === 'undefined'){ setPairStatus("Pairing isn't available right now — check your connection."); return; }
-  const code = generateShareCode();
+  const code = loadCustomPairCode() || generateShareCode();
   state.pair.role = 'host';
   state.pair.code = code;
   setPairCode(code);
@@ -767,7 +767,18 @@ function bindPairUI(){
   const endBtn = document.getElementById('pairEndBtn');
   const joinBtn = document.getElementById('pairJoinBtn');
   const joinInput = document.getElementById('pairJoinInput');
+  const customCodeInput = document.getElementById('pairCustomCodeInput');
+  const customCodeSaveBtn = document.getElementById('pairCustomCodeSaveBtn');
   if(!backdrop || !openBtn) return;
+
+  if(customCodeInput) customCodeInput.value = loadCustomPairCode();
+  if(customCodeSaveBtn){
+    customCodeSaveBtn.addEventListener('click', () => {
+      saveCustomPairCode(customCodeInput.value);
+      customCodeInput.value = loadCustomPairCode();
+      toast('Custom code saved — reopen Pair devices to start using it.');
+    });
+  }
 
   openBtn.addEventListener('click', () => {
     backdrop.hidden = false;

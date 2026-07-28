@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Reelframe</title>
+  <script>
+    // GitHub Pages has no real server-side routing, so any unknown path
+    // (like /CODE/Folder/file.mp4) lands here. Stash it and bounce to
+    // index.html, which restores the real URL via history.replaceState.
+    var loc = window.location;
+    sessionStorage.setItem('rf-deep-link', loc.pathname + loc.search + loc.hash);
+    loc.replace(loc.origin + '/index.html');
+  </script>
+</head>
+<body></body>
+</html>

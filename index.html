@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+    (function(){
+      var saved = sessionStorage.getItem('rf-deep-link');
+      if(saved){
+        sessionStorage.removeItem('rf-deep-link');
+        try{ history.replaceState(null, '', saved); }catch(e){}
+      }
+    })();
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -555,6 +564,9 @@
                   <button id="shareVideoBtn" class="icon-toggle-btn" title="Share video">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
                   </button>
+                  <button id="watchCopyLinkBtn" class="icon-toggle-btn" title="Copy a direct link to this video (works while Pair devices is hosting)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 12a4 4 0 0 0 5.66 0l2.34-2.34a4 4 0 1 0-5.66-5.66L10 5.34" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M15 12a4 4 0 0 0-5.66 0l-2.34 2.34a4 4 0 1 0 5.66 5.66L14 18.66" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                  </button>
                 </div>
               </div>
             </div>
@@ -635,6 +647,8 @@
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7.5-4.7-10-9.3C.4 8 2.3 4.5 6 4c2.2-.3 4 .9 6 3.2C14 4.9 15.8 3.7 18 4c3.7.5 5.6 4 4 7.7C19.5 16.3 12 21 12 21Z" stroke="currentColor" stroke-width="1.8"/></svg>
                   <span>Favorite</span>
                 </button>
+                <button id="focusCopyLinkBtn" class="fav-toggle" title="Copy a direct link to this photo">Copy link</button>
+                <button id="focusCopyImageLinkBtn" class="fav-toggle" title="Copy a raw-image link (no app UI at all)">Copy image link</button>
                 <button id="focusShareBtn" class="fav-toggle" title="Share photo">Share</button>
                 <button id="focusSaveBtn" class="fav-toggle" hidden title="Save to your library">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -1158,6 +1172,12 @@
         <button id="pairCodeCopyBtn" class="btn-ghost small" type="button">Copy code</button>
       </div>
       <div id="pairPeersList" class="party-peers-list" hidden></div>
+      <div class="modal-sub" style="margin:16px 0 6px; font-weight:600; color:var(--text-dim); padding:0;">Use a memorable code (optional)</div>
+      <p class="modal-sub" style="padding:0 0 8px;">By default your code changes every time you host. Set one here to keep the same code — and the same share links — every time.</p>
+      <div class="share-code-row">
+        <input id="pairCustomCodeInput" class="share-code-input" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="e.g. MYHOUSE">
+        <button id="pairCustomCodeSaveBtn" class="btn-ghost small" type="button">Save</button>
+      </div>
       <div class="modal-sub" style="margin:16px 0 6px; font-weight:600; color:var(--text-dim); padding:0;">Or join a paired library</div>
       <div class="share-code-row">
         <input id="pairJoinInput" class="share-code-input" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="8" placeholder="Enter their code">
@@ -1461,5 +1481,6 @@
 <script src="js/31-subtitles.js"></script>
 <script src="js/32-playlists.js"></script>
 <script src="js/33-audio-fx.js"></script>
+<script src="js/34-deep-link.js"></script>
 </body>
 </html>

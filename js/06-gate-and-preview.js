@@ -223,12 +223,21 @@ function hasReceiveParam(){
   return new URLSearchParams(location.search).has('receive');
 }
 
+const pendingDeepLink = parseDeepLinkPath();
+
 if(hasReceiveParam()){
   // Someone scanned a share QR (or opened a ?receive= link) — don't make
   // them pick a folder first. Jump straight into the app using the sample
   // library so the shell/UI exists, then syncViewFromURL() (called from
   // initAppUI) picks up ?receive= and routes into the receive flow itself.
   launchDemoLibrary();
+} else if(pendingDeepLink){
+  // A /CODE/Folder/file.ext link — defer until every script (Peer, the
+  // pairing helpers in 34-deep-link.js) has actually loaded, since this
+  // file runs synchronously long before the end of the script list.
+  window.addEventListener('load', () => {
+    if(typeof handleDeepLink === 'function') handleDeepLink();
+  });
 } else {
   tryRestorePreviousFolder();
 }
