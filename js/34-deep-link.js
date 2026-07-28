@@ -50,16 +50,29 @@ function bindDeepLinkButtons(){
 document.addEventListener('DOMContentLoaded', bindDeepLinkButtons);
 
 /* ---------- Bare-image render (no app chrome at all) ---------- */
+function ensureBareImageHost(){
+  let host = document.getElementById('rf-bare-image-host');
+  if(!host){
+    host = document.createElement('div');
+    host.id = 'rf-bare-image-host';
+    host.hidden = true;
+    document.body.appendChild(host);
+  }
+  document.documentElement.classList.add('rf-bare-image-mode');
+  return host;
+}
+
 function renderBareImageOnly(blobUrl, name){
   document.title = name || 'Image';
-  document.documentElement.innerHTML = '<head></head><body></body>';
-  const style = document.createElement('style');
-  style.textContent = 'html,body{margin:0;padding:0;background:#000;width:100%;height:100%;overflow:hidden;}img{display:block;width:100%;height:100%;object-fit:contain;}';
-  document.head.appendChild(style);
+  const host = ensureBareImageHost();
+  host.hidden = false;
+  host.innerHTML = '';
+  host.style.cssText = 'position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:99999;';
   const img = document.createElement('img');
   img.src = blobUrl;
   img.alt = name || '';
-  document.body.appendChild(img);
+  img.style.cssText = 'display:block;max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;';
+  host.appendChild(img);
 }
 
 /* ---------- Lightweight one-off peer connection just for this link ---------- */
@@ -133,8 +146,12 @@ async function handleDeepLink(){
   if(!parsed) return;
   const { code, targetPath, imageOnly } = parsed;
 
-  gateEl.style.display = 'none';
-  showLoadingScreen(`Connecting to "${code}"…`);
+  if(imageOnly){
+    ensureBareImageHost();
+  } else {
+    gateEl.style.display = 'none';
+    showLoadingScreen(`Connecting to "${code}"…`);
+  }
 
   try{
     const { conn } = await connectDeepLinkPeer(code);
@@ -153,7 +170,6 @@ async function handleDeepLink(){
     }
 
     if(imageOnly && found.type === 'image'){
-      document.getElementById('loadingSub').textContent = `Loading "${found.name}"…`;
       const { blob } = await requestDeepLinkFile(conn, found.path);
       teardownDeepLinkPeer();
       await hideLoadingScreen();
@@ -185,7 +201,13 @@ async function handleDeepLink(){
     console.error('deep link failed', err);
     teardownDeepLinkPeer();
     await hideLoadingScreen();
-    gateEl.style.display = 'flex';
-    showGateError(`Couldn't connect to "${code}" — make sure the other device still has Pair devices open with that code.`);
+    if(imageOnly){
+      renderBareImageOnly('', 'Image');
+      const host = document.getElementById('rf-bare-image-host');
+      if(host){ host.innerHTML = '<div style="color:#fff;font-family:Inter,system-ui;text-align:center;padding:24px;">Couldn’t load the image.</div>'; }
+    } else {
+      gateEl.style.display = 'flex';
+      showGateError(`Couldn't connect to "${code}" — make sure the other device still has Pair devices open with that code.`);
+    }
   }
 }

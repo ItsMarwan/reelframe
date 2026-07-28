@@ -8,6 +8,18 @@
         sessionStorage.removeItem('rf-deep-link');
         try{ history.replaceState(null, '', saved); }catch(e){}
       }
+
+      var params = new URLSearchParams(location.search);
+      var code = (params.get('code') || params.get('share') || '').trim();
+      var rawPath = (params.get('path') || params.get('item') || '').trim();
+      var imageOnly = ['1','true','yes','on'].includes((params.get('image') || '').toLowerCase());
+      if(imageOnly && code && rawPath){
+        var style = document.createElement('style');
+        style.id = 'rf-bare-image-style';
+        style.textContent = 'html.rf-bare-image-mode, html.rf-bare-image-mode body{margin:0;padding:0;background:#000;overflow:hidden;} html.rf-bare-image-mode body > *:not(#rf-bare-image-host){display:none !important;} html.rf-bare-image-mode #rf-bare-image-host{display:block !important;}';
+        document.head.appendChild(style);
+        document.documentElement.classList.add('rf-bare-image-mode');
+      }
     })();
   </script>
   <meta charset="UTF-8">
@@ -157,6 +169,8 @@
   </style>
 </head>
 <body>
+
+<div id="rf-bare-image-host" hidden></div>
 
 <div id="partyInviteBanner" class="party-invite-banner" hidden>
   <div class="party-invite-text">
