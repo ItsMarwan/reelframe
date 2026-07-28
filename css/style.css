@@ -467,7 +467,7 @@ a, button:focus-visible, input:focus-visible, [tabindex]:focus-visible{
 .btn-ghost.refreshing svg{ animation: iconSpin .9s linear infinite; }
 
 /* ==========================================================================
-   Footer — fixed on home view, normal on detail views
+   Footer — stay docked on all views so focus/detail pages do not break.
    ========================================================================== */
 .footer-container{
   position:fixed; bottom:0; left:0; right:0; z-index:39;
@@ -477,7 +477,8 @@ a, button:focus-visible, input:focus-visible, [tabindex]:focus-visible{
   transition: transform 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 .footer-container.is-normal{
-  position:static; z-index:auto; transform:none;
+  position:fixed; bottom:0; left:0; right:0; z-index:39;
+  transform:none;
   margin-bottom:0;
   transition:none;
 }
@@ -1937,6 +1938,11 @@ img, video{
   .topbar-right > .btn-ghost{ padding: 9px; }
 }
 
+@media (max-width: 1000px){
+  .topbar-right > .btn-ghost{ display:none; }
+  .mobile-topbar-btn{ display:inline-flex; }
+}
+
 /* ---- Tier 2 — phones (and anything narrower than the tablet tier can
    comfortably hold): tabs collapse into a select, secondary buttons
    collapse into the "more actions" dropdown, search becomes an icon
@@ -2102,3 +2108,95 @@ img, video{
   border:2px solid var(--border); border-top-color: var(--amber);
   animation: iconSpin .8s linear infinite;
 }
+
+/* ==========================================================================
+   Additions — subtitles, playlists, drag-reorder, equalizer, sidebar
+   "Uncategorized" separator, scrub-bar chapter label.
+   Append this whole block to the end of style.css.
+   ========================================================================== */
+
+/* ---- Subtitle import modal ---- */
+.subtitle-dropzone{
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: 26px 16px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.subtitle-dropzone p{ margin:0; }
+.subtitle-dropzone.dragover{
+  border-color: var(--amber);
+  background: rgba(230,162,76,.06);
+  color: var(--text);
+}
+
+/* ---- Playlists ---- */
+.playlist-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding: 10px 10px; border-radius:10px; border:1px solid var(--border-soft);
+  margin-bottom:6px;
+}
+.playlist-row-name{ font-size:13.5px; font-weight:600; }
+.playlist-row-count{ font-size:11.5px; color: var(--text-faint); margin-top:2px; }
+.playlist-row-actions{ display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+
+.playlist-track-row{
+  display:flex; align-items:center; gap:10px; padding:7px 6px; border-radius:9px;
+  cursor:pointer;
+}
+.playlist-track-row:hover{ background: var(--surface-2); }
+.drag-handle{ cursor: grab; color: var(--text-faint); font-size:15px; flex:0 0 auto; }
+
+.track-playlist-btn{
+  width:16px; height:16px; background:transparent; border:none; color: var(--text-faint);
+  opacity:0; transition: opacity .12s ease, color .12s ease; margin-right:4px;
+}
+.track-row:hover .track-playlist-btn{ opacity:1; }
+.track-playlist-btn:hover{ color: var(--amber); }
+
+/* ---- Generic drag-to-reorder feedback ---- */
+.drag-reorder-row{ cursor: grab; }
+.dragging-row{ opacity:.4; }
+.drag-over-before{ box-shadow: inset 0 2px 0 var(--amber); }
+.drag-over-after{ box-shadow: inset 0 -2px 0 var(--amber); }
+
+/* ---- Equalizer / booster ---- */
+.eq-boost-row{ display:flex; align-items:center; gap:12px; padding: 4px 2px 14px; }
+.eq-boost-row input[type="range"]{ flex:1 1 auto; accent-color: var(--amber); }
+.eq-boost-row span{ font-family: var(--mono-font); font-size:12.5px; color: var(--text-dim); width:44px; text-align:right; }
+
+.eq-presets-row{ display:flex; gap:8px; flex-wrap:wrap; padding: 0 2px 16px; }
+.eq-preset-btn{
+  background: var(--surface-2); border:1px solid var(--border); color: var(--text-dim);
+  padding:6px 12px; border-radius:999px; font-size:12px; font-weight:600;
+}
+.eq-preset-btn:hover{ color: var(--text); }
+.eq-preset-btn.active{ background: var(--amber); color:#1a1305; border-color: var(--amber); }
+
+.eq-bands-row{ display:flex; justify-content:space-between; gap:10px; padding: 6px 8px 4px; }
+.eq-band{ display:flex; flex-direction:column; align-items:center; gap:8px; flex:1 1 0; }
+.eq-band input[type="range"]{
+  writing-mode: vertical-lr; direction: rtl; appearance: slider-vertical;
+  width:6px; height:120px; accent-color: var(--teal);
+}
+.eq-band span{ font-family: var(--mono-font); font-size:10.5px; color: var(--text-faint); }
+
+/* ---- Sidebar "Uncategorized" — lives in the Library section, not the
+   category list, set off with its own top border as a separator. ---- */
+.cat-item-uncategorized{
+  border-top: 1px solid var(--border-soft);
+  padding-top: 13px !important;
+  margin-top: 2px;
+  color: var(--text-faint);
+}
+
+/* ---- Scrub-preview chapter label ---- */
+.player-scrub-chapter{
+  font-family: var(--mono-font); font-size:10.5px; font-weight:600; color: var(--amber);
+  background: rgba(10,10,12,.78); padding:2px 8px; border-radius:6px;
+  letter-spacing:.02em; margin-bottom:2px; max-width:160px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.player-scrub-chapter:empty{ display:none; }

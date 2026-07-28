@@ -95,7 +95,7 @@ function showView(id){
 /* ---- Sidebar ---- */
 function renderSidebar(){
   const list = document.getElementById('categoryList');
-  const cats = state.categoriesByTab[state.tab] || [];
+  const cats = (state.categoriesByTab[state.tab] || []).filter(c => c !== UNCATEGORIZED);
   const items = itemsForTab(state.tab);
   const activeCat = state.cat[state.tab];
   const snapshotCountEl = document.getElementById('snapshotCount');
@@ -187,6 +187,22 @@ function renderSidebar(){
       watchLaterBtn.classList.add('active');
       closeMobileShell();
       goToGrid('videos');
+    };
+  }
+
+  const uncategorizedBtn = document.querySelector('.cat-item[data-special="uncategorized"]');
+  if(uncategorizedBtn){
+    const count = items.filter(i => i.category === UNCATEGORIZED).length;
+    const countEl = document.getElementById('uncategorizedCount');
+    if(countEl) countEl.textContent = count;
+    uncategorizedBtn.classList.toggle('active', activeCat === UNCATEGORIZED);
+    uncategorizedBtn.onclick = () => {
+      state.cat[state.tab] = UNCATEGORIZED;
+      document.querySelectorAll('#categoryList .cat-item').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.sidebar .cat-item[data-special]').forEach(b => b.classList.remove('active'));
+      uncategorizedBtn.classList.add('active');
+      closeMobileShell();
+      goToGrid(state.tab);
     };
   }
 

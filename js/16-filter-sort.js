@@ -26,7 +26,7 @@ function getFiltered(tab){
   if(state.search){
     list = list.filter(i => i.name.toLowerCase().includes(state.search));
   }
-  if(cat === '__snapshots__') return list;
+  if(cat === '__snapshots__' && state.sort[tab] === 'random') return list;
   if(cat === '__history__' && (tab === 'music' || state.sort[tab] === 'random')) return list;
   return applySort(list.slice(), state.sort[tab]);
 }
@@ -39,14 +39,14 @@ function historyItemsFor(tab){
   state.history.forEach(h => {
     if(h.type !== wantType || seen.has(h.path)) return;
     const item = byPath.get(h.path);
-    if(item){ out.push(item); seen.add(h.path); }
+    if(item){ out.push({ ...item, _historyTs: h.ts || 0 }); seen.add(h.path); }
   });
   return out;
 }
 function applySort(list, mode){
   switch(mode){
-    case 'new': return list.sort((a,b) => b.lastModified - a.lastModified);
-    case 'old': return list.sort((a,b) => a.lastModified - b.lastModified);
+    case 'new': return list.sort((a,b) => (b._historyTs ?? b.lastModified ?? 0) - (a._historyTs ?? a.lastModified ?? 0));
+    case 'old': return list.sort((a,b) => (a._historyTs ?? a.lastModified ?? 0) - (b._historyTs ?? b.lastModified ?? 0));
     case 'az':  return list.sort((a,b) => a.name.localeCompare(b.name));
     case 'za':  return list.sort((a,b) => b.name.localeCompare(a.name));
     case 'random':

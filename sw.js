@@ -1,4 +1,4 @@
-const CACHE_NAME = 'reelframe-shell-v4';
+const CACHE_NAME = 'reelframe-shell-v5';
 const SHELL_ASSETS = [
   './', './index.html', './css/style.css',
   './js/01-constants.js', './js/03-storage.js', './js/02-state.js',
@@ -10,7 +10,8 @@ const SHELL_ASSETS = [
   './js/19-video-player.js', './js/20-watch-view.js', './js/21-image-grid.js',
   './js/22-music-id3.js', './js/23-music-library.js', './js/24-music-player-bar.js',
   './js/25-image-viewer-and-focus.js', './js/26-chapters.js', './js/27-watch-party.js',
-  './js/28-keyboard-shortcuts.js', './js/29-view-tab.js',
+  './js/28-keyboard-shortcuts.js', './js/29-view-tab.js', './js/30-pair-mode.js',
+  './js/31-subtitles.js', './js/32-playlists.js', './js/33-audio-fx.js',
 ];
 
 self.addEventListener('install', (event) => {

@@ -58,15 +58,17 @@ async function initAppUI(){
     bindWatchPartyUI();
     bindKeyboardShortcutsUI();
     bindViewTab();
+    bindViewTab();
     bindRefreshLibraryButton();
     consumePairParamIfPresent();
     window.addEventListener('popstate', syncViewFromURL);
+    // Keep retrying any video/pair thumbnail that never came in — but only
+    // for cards actually visible on screen right now, checked every few
+    // seconds. Without this, a thumb that failed once (a stalled video
+    // decode, a dropped pair request, a brief connection hiccup) stayed
+    // blank forever even though nothing was actually broken.
+    startThumbRetryWatcher();
     appBound = true;
-    // Warm the captions model in the background once things settle, so it's
-    // likely already loaded by the time "Generate captions" gets clicked.
-    // Also build the in-memory transcript search index from any captions
-    // already saved on disk, so global search can match spoken content
-    // without waiting for the person to open each video first.
     (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => {
       prewarmCaptionModel();
       buildTranscriptIndex();
