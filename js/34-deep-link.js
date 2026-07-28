@@ -29,28 +29,40 @@ function currentShareableItem(){
 
 function copyDirectLink(imageOnly){
   const item = currentShareableItem();
-  return copyDirectLinkForItem(item, imageOnly);
-}
-
-function copyDirectLinkForItem(item, imageOnly){
-  if(!item){ toast('Nothing open to link to.'); return false; }
+  if(!item){ toast('Nothing open to link to.'); return; }
   if(state.pair.role !== 'host'){
     toast('Start Pair devices (as the host) first — the link only works while you’re hosting.');
-    return false;
+    return;
   }
   const url = buildDirectShareUrl(item, { imageOnly });
-  if(!url){ toast('Could not build a link for this item.'); return false; }
-  copyTextToClipboard(url).then(ok => toast(ok ? (imageOnly ? 'Image link copied' : 'Link copied') : url));
-  return true;
+  if(!url){ toast('Could not build a link for this item.'); return; }
+  copyTextToClipboard(url).then(ok => toast(ok ? 'Link copied' : url));
+}
+
+function openShareLinkModal(){
+  const backdrop = document.getElementById('shareLinkModalBackdrop');
+  if(backdrop) backdrop.hidden = false;
+}
+
+function closeShareLinkModal(){
+  const backdrop = document.getElementById('shareLinkModalBackdrop');
+  if(backdrop) backdrop.hidden = true;
 }
 
 function bindDeepLinkButtons(){
-  const watchBtn = document.getElementById('watchCopyLinkBtn');
-  const focusBtn = document.getElementById('focusCopyLinkBtn');
-  const focusImageBtn = document.getElementById('focusCopyImageLinkBtn');
-  if(watchBtn) watchBtn.addEventListener('click', () => copyDirectLink(false));
-  if(focusBtn) focusBtn.addEventListener('click', () => copyDirectLink(false));
-  if(focusImageBtn) focusImageBtn.addEventListener('click', () => copyDirectLink(true));
+  const shareBtn = document.getElementById('shareLinkBtn');
+  const focusShareBtn = document.getElementById('focusShareBtn');
+  const modalCloseBtn = document.getElementById('shareLinkModalClose');
+  const copyNormalBtn = document.getElementById('shareLinkCopyBtn');
+  const copyImageBtn = document.getElementById('shareLinkCopyImageBtn');
+  const backdrop = document.getElementById('shareLinkModalBackdrop');
+
+  if(shareBtn) shareBtn.addEventListener('click', openShareLinkModal);
+  if(focusShareBtn) focusShareBtn.addEventListener('click', openShareLinkModal);
+  if(modalCloseBtn) modalCloseBtn.addEventListener('click', closeShareLinkModal);
+  if(backdrop) backdrop.addEventListener('click', (e) => { if(e.target === backdrop) closeShareLinkModal(); });
+  if(copyNormalBtn) copyNormalBtn.addEventListener('click', () => { copyDirectLink(false); closeShareLinkModal(); });
+  if(copyImageBtn) copyImageBtn.addEventListener('click', () => { copyDirectLink(true); closeShareLinkModal(); });
 }
 document.addEventListener('DOMContentLoaded', bindDeepLinkButtons);
 
