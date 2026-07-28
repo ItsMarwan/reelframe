@@ -47,6 +47,16 @@ const DEEP_LINK_IGNORE_RE = /^(css\/|js\/|images\/|favicon\.svg$|manifest\.json$
    no leading slash). Returns null if the path doesn't look like a deep link
    at all (e.g. it's the site root, or one of the app's real static files). */
 function parseDeepLinkPath(){
+  const params = new URLSearchParams(location.search);
+  const code = (params.get('code') || params.get('share') || '').trim();
+  const rawPath = (params.get('path') || params.get('item') || '').trim();
+  const imageOnly = ['1','true','yes','on'].includes((params.get('image') || '').toLowerCase());
+
+  if(code && rawPath){
+    const targetPath = rawPath.replace(/^\/+/, '').replace(/\/+$/, '');
+    if(targetPath) return { code, targetPath, imageOnly };
+  }
+
   let path = decodeURIComponent(location.pathname);
   path = path.replace(/^\/+/, '').replace(/\/+$/, '');
   if(!path) return null;
@@ -55,17 +65,17 @@ function parseDeepLinkPath(){
   const segments = path.split('/').filter(Boolean);
   if(segments.length < 2) return null; // need at least CODE/file
 
-  const code = segments[0];
+  const legacyCode = segments[0];
   let last = segments[segments.length - 1];
-  let imageOnly = false;
+  let legacyImageOnly = false;
   if(/\.image$/i.test(last)){
-    imageOnly = true;
+    legacyImageOnly = true;
     last = last.slice(0, -'.image'.length);
   }
   if(!last) return null;
 
   const targetPath = [...segments.slice(1, -1), last].join('/');
-  return { code, targetPath, imageOnly };
+  return { code: legacyCode, targetPath, imageOnly: legacyImageOnly };
 }
 
 function extOf(name){

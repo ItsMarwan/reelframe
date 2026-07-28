@@ -12,8 +12,13 @@
 
 function buildDirectShareUrl(item, opts = {}){
   if(!item || state.pair.role !== 'host' || !state.pair.code) return '';
-  const path = item.path.split('/').map(encodeURIComponent).join('/');
-  return `${location.origin}/${state.pair.code}/${path}${opts.imageOnly ? '.image' : ''}`;
+  const url = new URL(location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('code', state.pair.code);
+  url.searchParams.set('path', item.path);
+  if(opts.imageOnly) url.searchParams.set('image', '1');
+  return url.toString();
 }
 
 function currentShareableItem(){
