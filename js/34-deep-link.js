@@ -29,14 +29,19 @@ function currentShareableItem(){
 
 function copyDirectLink(imageOnly){
   const item = currentShareableItem();
-  if(!item){ toast('Nothing open to link to.'); return; }
+  return copyDirectLinkForItem(item, imageOnly);
+}
+
+function copyDirectLinkForItem(item, imageOnly){
+  if(!item){ toast('Nothing open to link to.'); return false; }
   if(state.pair.role !== 'host'){
     toast('Start Pair devices (as the host) first — the link only works while you’re hosting.');
-    return;
+    return false;
   }
   const url = buildDirectShareUrl(item, { imageOnly });
-  if(!url){ toast('Could not build a link for this item.'); return; }
-  copyTextToClipboard(url).then(ok => toast(ok ? 'Link copied' : url));
+  if(!url){ toast('Could not build a link for this item.'); return false; }
+  copyTextToClipboard(url).then(ok => toast(ok ? (imageOnly ? 'Image link copied' : 'Link copied') : url));
+  return true;
 }
 
 function bindDeepLinkButtons(){

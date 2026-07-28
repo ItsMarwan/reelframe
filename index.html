@@ -1056,41 +1056,18 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       </button>
     </div>
-    <p class="modal-sub">On the other device, tap Receive and enter this code. Works on this WiFi network or anywhere with internet.</p>
+    <p class="modal-sub">Choose the kind of link to copy for this item.</p>
     <div class="modal-list">
       <div class="setting-row">
         <div class="setting-text">
           <div class="setting-title" id="shareItemName">—</div>
-          <div class="setting-desc" id="shareStatusText">Setting up…</div>
+          <div class="setting-desc" id="shareStatusText">Pick a link below to copy it.</div>
         </div>
       </div>
-      <div class="share-qr-wrap">
-        <div id="shareQrCode" class="share-qr-code"></div>
+      <div class="share-code-row" style="margin-top:8px;">
+        <button id="shareCopyLinkBtn" class="btn-primary small" type="button">Copy link</button>
+        <button id="shareCopyImageBtn" class="btn-ghost small" type="button" hidden>Copy image link</button>
       </div>
-      <p class="modal-sub" style="margin:0 0 10px;">Scan this with another device's camera — as long as Reelframe is open there, it'll jump straight to receiving.</p>
-
-      <div id="sharePendingApproval" class="share-pending-approval" hidden>
-        <div class="setting-text">
-          <div class="setting-title">Connection waiting for approval</div>
-          <div class="setting-desc" id="sharePendingDesc">A device wants to connect.</div>
-        </div>
-        <div class="share-code-row">
-          <button id="shareApproveBtn" class="btn-primary small" type="button">Approve</button>
-          <button id="shareDenyBtn" class="btn-ghost small" type="button">Deny</button>
-        </div>
-      </div>
-
-      <div class="setting-row" id="shareProgressRow" hidden>
-        <div class="toast-progress-track"><div id="shareSendProgressFill" class="toast-progress-fill"></div></div>
-      </div>
-
-      <details class="share-advanced">
-        <summary>Advanced — use a code instead</summary>
-        <div class="share-code-row">
-          <div class="share-code-display" id="shareCodeDisplay">······</div>
-          <button id="shareCodeCopyBtn" class="btn-ghost small" type="button">Copy code</button>
-        </div>
-      </details>
     </div>
   </div>
 </div>

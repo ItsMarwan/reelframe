@@ -306,26 +306,38 @@ function startShareHost(item){
 function openShareModal(item){
   state.shareItem = item;
   const backdrop = document.getElementById('shareModalBackdrop');
-  document.getElementById('shareItemName').textContent = item.name;
+  const itemNameEl = document.getElementById('shareItemName');
+  const statusTextEl = document.getElementById('shareStatusText');
+  const copyLinkBtn = document.getElementById('shareCopyLinkBtn');
+  const copyImageBtn = document.getElementById('shareCopyImageBtn');
+
+  if(itemNameEl) itemNameEl.textContent = item.name;
+  if(statusTextEl) statusTextEl.textContent = item.type === 'image' ? 'Choose a link to copy below.' : 'Copy a direct link below.';
+  if(copyLinkBtn){
+    copyLinkBtn.onclick = () => {
+      copyDirectLinkForItem(item, false);
+      backdrop.hidden = true;
+    };
+  }
+  if(copyImageBtn){
+    copyImageBtn.hidden = item.type !== 'image';
+    copyImageBtn.onclick = () => {
+      copyDirectLinkForItem(item, true);
+      backdrop.hidden = true;
+    };
+  }
   setShareProgress(null);
   backdrop.hidden = false;
-  startShareHost(item);
 }
 
 function bindShareControls(){
   const backdrop = document.getElementById('shareModalBackdrop');
   const closeBtn = document.getElementById('shareModalClose');
-  const copyBtn = document.getElementById('shareCodeCopyBtn');
-  if(!backdrop || !closeBtn || !copyBtn) return;
+  if(!backdrop || !closeBtn) return;
 
   const close = () => { backdrop.hidden = true; teardownShareHost(); };
   closeBtn.addEventListener('click', close);
   backdrop.addEventListener('click', (e) => { if(e.target === backdrop) close(); });
-  copyBtn.addEventListener('click', async () => {
-    if(!shareHost.code) return;
-    const ok = await copyTextToClipboard(shareHost.code);
-    toast(ok ? 'Code copied' : `Couldn't copy — code is ${shareHost.code}`);
-  });
 }
 
 /* ---------- Receiver ---------- */
