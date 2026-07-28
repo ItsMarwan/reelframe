@@ -1163,22 +1163,6 @@
   </div>
 </div>
 
-<div id="shareLinkModalBackdrop" class="modal-backdrop" hidden>
-  <div class="modal">
-    <div class="modal-head">
-      <h3>Share link</h3>
-      <button id="shareLinkModalClose" class="btn-icon" title="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </button>
-    </div>
-    <p class="modal-sub">Choose how you want to share this item.</p>
-    <div class="modal-list">
-      <button id="shareLinkCopyBtn" class="btn-primary" type="button">Copy normal link</button>
-      <button id="shareLinkCopyImageBtn" class="btn-ghost" type="button">Copy image-only link</button>
-    </div>
-  </div>
-</div>
-
 <div id="pairModalBackdrop" class="modal-backdrop" hidden>
   <div class="modal">
     <div class="modal-head">
@@ -1188,6 +1172,13 @@
       </button>
     </div>
     <p class="modal-sub">Share this code (or QR) with the other device so it can browse this library live. It streams over your local network automatically when possible, and over the internet otherwise.</p>
+    <div id="shareLinkChooser" class="modal-card" hidden style="margin-bottom:12px; padding:12px; border:1px solid var(--border-subtle); border-radius:12px; background:var(--panel-2);">
+      <div class="modal-sub" style="margin:0 0 8px; font-weight:600; color:var(--text-dim); padding:0;">Share link</div>
+      <div class="share-code-row" style="flex-wrap:wrap; gap:8px;">
+        <button id="shareLinkCopyBtn" class="btn-primary small" type="button">Copy normal link</button>
+        <button id="shareLinkCopyImageBtn" class="btn-ghost small" type="button">Copy image-only link</button>
+      </div>
+    </div>
     <div class="modal-list">
       <div class="setting-row">
         <div class="setting-text"><div class="setting-desc" id="pairStatusText">Setting up…</div></div>

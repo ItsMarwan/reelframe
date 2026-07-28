@@ -39,30 +39,21 @@ function copyDirectLink(imageOnly){
   copyTextToClipboard(url).then(ok => toast(ok ? 'Link copied' : url));
 }
 
-function openShareLinkModal(){
-  const backdrop = document.getElementById('shareLinkModalBackdrop');
-  if(backdrop) backdrop.hidden = false;
-}
-
-function closeShareLinkModal(){
-  const backdrop = document.getElementById('shareLinkModalBackdrop');
-  if(backdrop) backdrop.hidden = true;
+function toggleShareLinkChooser(show){
+  const chooser = document.getElementById('shareLinkChooser');
+  if(chooser) chooser.hidden = !show;
 }
 
 function bindDeepLinkButtons(){
   const shareBtn = document.getElementById('shareLinkBtn');
   const focusShareBtn = document.getElementById('focusShareBtn');
-  const modalCloseBtn = document.getElementById('shareLinkModalClose');
   const copyNormalBtn = document.getElementById('shareLinkCopyBtn');
   const copyImageBtn = document.getElementById('shareLinkCopyImageBtn');
-  const backdrop = document.getElementById('shareLinkModalBackdrop');
 
-  if(shareBtn) shareBtn.addEventListener('click', openShareLinkModal);
-  if(focusShareBtn) focusShareBtn.addEventListener('click', openShareLinkModal);
-  if(modalCloseBtn) modalCloseBtn.addEventListener('click', closeShareLinkModal);
-  if(backdrop) backdrop.addEventListener('click', (e) => { if(e.target === backdrop) closeShareLinkModal(); });
-  if(copyNormalBtn) copyNormalBtn.addEventListener('click', () => { copyDirectLink(false); closeShareLinkModal(); });
-  if(copyImageBtn) copyImageBtn.addEventListener('click', () => { copyDirectLink(true); closeShareLinkModal(); });
+  if(shareBtn) shareBtn.addEventListener('click', () => toggleShareLinkChooser(true));
+  if(focusShareBtn) focusShareBtn.addEventListener('click', () => toggleShareLinkChooser(true));
+  if(copyNormalBtn) copyNormalBtn.addEventListener('click', () => { copyDirectLink(false); toggleShareLinkChooser(false); });
+  if(copyImageBtn) copyImageBtn.addEventListener('click', () => { copyDirectLink(true); toggleShareLinkChooser(false); });
 }
 document.addEventListener('DOMContentLoaded', bindDeepLinkButtons);
 
