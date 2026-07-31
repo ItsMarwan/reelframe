@@ -27,6 +27,9 @@ async function exportLibraryData(){
     watchProgress: state.watchProgress,
     chapters: state.chapters,
     snapshots: snapshotsPayload,
+    nsfwResults: state.nsfwResults,
+    nsfwScanOnStartup: state.nsfwScanOnStartup,
+    nsfwBlurEnabled: state.nsfwBlurEnabled,
     exportedAt: new Date().toISOString(),
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -159,6 +162,18 @@ async function importLibraryData(file){
       state.chapters = isReplace ? parsed.chapters : mergeObjectAddOnly(state.chapters, parsed.chapters);
       saveChapters();
     }
+    if(parsed.nsfwResults && typeof parsed.nsfwResults === 'object'){
+      state.nsfwResults = isReplace ? parsed.nsfwResults : mergeObjectAddOnly(state.nsfwResults, parsed.nsfwResults);
+      saveNsfwResults();
+    }
+    if(typeof parsed.nsfwScanOnStartup === 'boolean'){
+      state.nsfwScanOnStartup = parsed.nsfwScanOnStartup;
+      saveNsfwScanOnStartup();
+    }
+    if(typeof parsed.nsfwBlurEnabled === 'boolean'){
+      state.nsfwBlurEnabled = parsed.nsfwBlurEnabled;
+      saveNsfwBlurEnabled();
+    }
     if(Array.isArray(parsed.snapshots) && parsed.snapshots.length){
       if(isReplace) await clearAllSnapshots();
       // For "add", skip snapshots that look identical to one already saved
@@ -184,6 +199,7 @@ async function importLibraryData(file){
     updateFavCount();
     renderSidebar();
     renderActiveGrid();
+    updateNsfwScanUI();
     toast(isReplace ? 'Library backup imported (replaced)' : 'Library backup imported (added)');
   }catch(e){
     console.error(e);
@@ -358,11 +374,20 @@ function bindSettingsModal(){
   const installBtn = document.getElementById('installAppBtn');
   const miniPlayerEnabledToggle = document.getElementById('miniPlayerEnabledToggle');
   const nsfwScanBtn = document.getElementById('nsfwScanBtn');
+  const nsfwScanStartupToggle = document.getElementById('nsfwScanStartupToggle');
+  const nsfwBlurToggle = document.getElementById('nsfwBlurToggle');
+  const nsfwRegionScanBtn = document.getElementById('nsfwRegionScanBtn');
+  const nsfwRegionPauseBtn = document.getElementById('nsfwRegionPauseBtn');
   const redeemCodeInput = document.getElementById('redeemCodeInput');
   const redeemCodeBtn = document.getElementById('redeemCodeBtn');
 
   function refreshNsfwFeatureUI(){
-    if(nsfwScanBtn) nsfwScanBtn.disabled = !state.nsfwFeatureUnlocked;
+    if(nsfwScanStartupToggle) nsfwScanStartupToggle.disabled = !state.nsfwFeatureUnlocked;
+    if(nsfwBlurToggle) nsfwBlurToggle.disabled = !state.nsfwFeatureUnlocked;
+    if(nsfwRegionScanBtn) nsfwRegionScanBtn.disabled = !state.nsfwFeatureUnlocked;
+    if(nsfwRegionPauseBtn) nsfwRegionPauseBtn.disabled = !state.nsfwFeatureUnlocked;
+    updateNsfwScanUI();
+    updateNsfwRegionScanUI();
   }
   refreshNsfwFeatureUI();
 
@@ -384,7 +409,24 @@ function bindSettingsModal(){
   }
   if(nsfwScanBtn){
     nsfwScanBtn.addEventListener('click', () => {
-      toast('NSFW detection is still in development — check back soon.');
+      if(!state.nsfwFeatureUnlocked){ toast('Redeem a code to unlock NSFW detection first.'); return; }
+      if(nsfwScanState.running) cancelNsfwScan();
+      else scanLibraryForNsfw({ force: true });
+    });
+  }
+  if(nsfwScanStartupToggle){
+    nsfwScanStartupToggle.addEventListener('change', () => {
+      state.nsfwScanOnStartup = nsfwScanStartupToggle.checked;
+      saveNsfwScanOnStartup();
+      toast(state.nsfwScanOnStartup ? 'Will scan for NSFW content on startup' : 'Startup scan turned off — use the button here instead');
+    });
+  }
+  if(nsfwBlurToggle){
+    nsfwBlurToggle.addEventListener('change', () => {
+      state.nsfwBlurEnabled = nsfwBlurToggle.checked;
+      saveNsfwBlurEnabled();
+      refreshNsfwVisuals();
+      toast(state.nsfwBlurEnabled ? 'Flagged photos will be blurred and tagged' : 'Flagged photos will show normally');
     });
   }
 
@@ -407,6 +449,10 @@ function bindSettingsModal(){
     if(lockBlurDelayInput) lockBlurDelayInput.value = state.lockBlurDelaySeconds;
     if(lockTimeoutInput) lockTimeoutInput.value = state.lockTimeoutMinutes;
     if(installBtn) installBtn.hidden = !deferredInstallPrompt;
+    if(nsfwScanStartupToggle) nsfwScanStartupToggle.checked = state.nsfwScanOnStartup;
+    if(nsfwBlurToggle) nsfwBlurToggle.checked = state.nsfwBlurEnabled;
+    updateNsfwScanUI();
+    updateNsfwRegionScanUI();
     backdrop.hidden = false;
   });
   closeBtn.addEventListener('click', () => { backdrop.hidden = true; });

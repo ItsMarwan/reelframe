@@ -39,6 +39,52 @@ const IMAGE_POP_SIZE_KEY = 'reelframe-image-pop-size-v1';
 
 const NSFW_FEATURE_UNLOCK_KEY = 'reelframe-nsfw-unlocked-v1';
 const NSFW_REDEEM_CODE = 'REELFRAME-NSFW-BETA';
+const NSFW_SCAN_ON_STARTUP_KEY = 'reelframe-nsfw-scan-startup-v1';
+const NSFW_BLUR_ENABLED_KEY = 'reelframe-nsfw-blur-enabled-v1';
+const NSFW_RESULTS_KEY = 'reelframe-nsfw-results-v1';
+/* Combined Porn+Hentai+Sexy probability at/above which a photo gets flagged. */
+const NSFW_SCORE_THRESHOLD = 0.72;
+
+/* ---------- Region ("spot") detection — second, optional pass ----------
+   Unlike the classifier above (nsfwjs — whole-image only), this uses an
+   ONNX object-detection model (NudeNet-style) that returns actual bounding
+   boxes, so only the flagged regions get blurred instead of the whole photo.
+   NOTE for Marwan: NUDENET_CLASS_NAMES' order below has been cross-checked
+   against vladmandic's sd-extension-nudenet (a working reference
+   implementation wrapping this same model) and matches its label list
+   position-for-position — should be safe as-is. Still worth double-checking
+   MODEL_URL resolves once you've actually got the .onnx file hosted (see
+   README.md for how to get it into the repo); I couldn't fetch the binary
+   itself from this environment to run it directly. */
+/* NOTE for Marwan: originally pointed at NudeNet's GitHub release asset
+   (github.com/notAI-tech/NudeNet/releases/download/v3.4-weights/320n.onnx),
+   but that redirects to a github.com/login page even for anonymous requests
+   — not something we want the app depending on at runtime. Pulled the exact
+   same file (MIT-licensed, verified byte-identical to what `pip install
+   nudenet` bundles) from PyPI instead and committed it straight into the
+   repo at models/nudenet-320n.onnx — see README.md for how to get it if
+   it's ever missing (e.g. fresh clone before running the download step, or
+   .gitignore excludes it in your setup). */
+const NUDENET_MODEL_URL = 'models/nudenet-320n.onnx';
+const NUDENET_INPUT_SIZE = 320;
+const NSFW_REGION_SCORE_THRESHOLD = 0.45;
+const NSFW_REGION_NMS_IOU = 0.5;
+const NSFW_REGIONS_KEY = 'reelframe-nsfw-regions-v1';
+const NSFW_REGION_QUEUE_KEY = 'reelframe-nsfw-region-queue-v1';
+/* Index order must match the model's training label order — see note above. */
+const NUDENET_CLASS_NAMES = [
+  'FEMALE_GENITALIA_COVERED', 'FACE_FEMALE', 'BUTTOCKS_EXPOSED', 'FEMALE_BREAST_EXPOSED',
+  'FEMALE_GENITALIA_EXPOSED', 'MALE_BREAST_EXPOSED', 'ANUS_EXPOSED', 'FEET_EXPOSED',
+  'BELLY_COVERED', 'FEET_COVERED', 'ARMPITS_COVERED', 'ARMPITS_EXPOSED', 'FACE_MALE',
+  'BELLY_EXPOSED', 'MALE_GENITALIA_EXPOSED', 'ANUS_COVERED', 'FEMALE_BREAST_COVERED',
+  'BUTTOCKS_COVERED',
+];
+/* Only these get boxes drawn/blurred — covered/face/limb classes are skipped
+   on purpose (not indecent, no reason to censor them). */
+const NUDENET_BLUR_CLASSES = new Set([
+  'FEMALE_BREAST_EXPOSED', 'FEMALE_GENITALIA_EXPOSED', 'MALE_GENITALIA_EXPOSED',
+  'BUTTOCKS_EXPOSED', 'ANUS_EXPOSED', 'MALE_BREAST_EXPOSED',
+]);
 
 /* New in this pass */
 const LOCK_TIMEOUT_KEY = 'reelframe-lock-timeout-min-v1';       // auto-lock after N minutes idle (0 = disabled)

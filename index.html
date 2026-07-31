@@ -655,7 +655,16 @@
         </button>
         <div class="focus-layout">
           <div class="focus-main">
-            <img id="focusImg" alt="">
+            <div id="focusImgWrap" class="focus-img-wrap">
+              <img id="focusImg" alt="">
+              <canvas id="focusNsfwCanvas" hidden></canvas>
+              <div id="focusNsfwGate" class="nsfw-gate" hidden>
+                <span class="nsfw-gate-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5.2L5.5 16a2 2 0 0 0 1.7 3h9.6a2 2 0 0 0 1.7-3L14 8.2V3" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="12" cy="16.3" r="1" fill="currentColor"/></svg></span>
+                <span class="nsfw-gate-text">Flagged as possible NSFW content</span>
+                <button id="focusUnblurBtn" class="btn-ghost small" type="button">Unblur</button>
+              </div>
+              <button id="focusRehideBtn" class="nsfw-rehide-btn" type="button" title="Blur again" hidden>Blur again</button>
+            </div>
             <div class="watch-info">
               <h1 id="focusTitle"></h1>
               <div class="watch-meta">
@@ -1066,6 +1075,54 @@
           <div class="setting-desc">Scans your whole library and flags photos that may contain NSFW content. Still in development — requires a redeem code to enable.</div>
         </div>
         <button id="nsfwScanBtn" class="btn-ghost small" type="button" disabled>Scan library</button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Scan status</div>
+          <div class="setting-desc" id="nsfwScanStatus">Redeem a code below to enable NSFW detection.</div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Scan on startup</div>
+          <div class="setting-desc">Automatically scan any new or changed photos each time you open Reelframe, instead of only when you press the button above.</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="nsfwScanStartupToggle" disabled>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Blur flagged photos</div>
+          <div class="setting-desc">When on, flagged photos show a warning badge and stay blurred until you tap to unblur them. When off, scan results are still kept, but nothing is blurred or tagged.</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="nsfwBlurToggle" disabled>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">
+            Region detection
+            <span class="beta-badge" title="Still in development">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5.2L5.5 16a2 2 0 0 0 1.7 3h9.6a2 2 0 0 0 1.7-3L14 8.2V3" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+              BETA
+            </span>
+          </div>
+          <div class="setting-desc">A second, optional pass that finds the exact flagged spots in a photo so only those areas get blurred instead of the whole image. Runs in the background — safe to pause and resume, even across a reload.</div>
+        </div>
+        <div class="setting-actions">
+          <button id="nsfwRegionScanBtn" class="btn-ghost small" type="button" disabled>Scan for regions</button>
+          <button id="nsfwRegionPauseBtn" class="btn-ghost small" type="button" disabled hidden>Pause</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Region scan status</div>
+          <div class="setting-desc" id="nsfwRegionScanStatus">Redeem a code below to enable region detection.</div>
+        </div>
       </div>
       <div class="setting-row">
         <div class="setting-text">
@@ -1483,6 +1540,16 @@
   </div>
 </div>
 
+<div id="nsfwProgressToast" class="toast toast-progress nsfw-progress" hidden>
+  <div class="toast-progress-row">
+    <span id="nsfwProgressLabel">Scanning…</span>
+    <span id="nsfwProgressCount"></span>
+  </div>
+  <div class="toast-progress-track">
+    <div id="nsfwProgressFill" class="toast-progress-fill"></div>
+  </div>
+</div>
+
 <div id="footerContainer" class="footer-container">
   <button id="footerToggleTab" class="footer-toggle-tab" title="Toggle footer">
     <span id="footerToggleText" class="footer-toggle-text">Collapse</span>
@@ -1509,6 +1576,9 @@
 <!-- QRCode.js: generates the share QR code client-side, no network calls -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/nsfwjs@4.2.1/dist/nsfwjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
 <script src="js/01-constants.js"></script>
 <script src="js/03-storage.js"></script>
 <script src="js/02-state.js"></script>
@@ -1543,5 +1613,7 @@
 <script src="js/32-playlists.js"></script>
 <script src="js/33-audio-fx.js"></script>
 <script src="js/34-deep-link.js"></script>
+<script src="js/35-nsfw-scan.js"></script>
+<script src="js/36-nsfw-regions.js"></script>
 </body>
 </html>

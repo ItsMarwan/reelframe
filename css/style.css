@@ -1928,6 +1928,7 @@ img, video{
   border-radius:999px;
   transition: width .25s ease;
 }
+.toast-progress.nsfw-progress{ bottom: 130px; }
 
 /* ==========================================================================
    Responsive
@@ -2229,3 +2230,48 @@ img, video{
   font-size:10px; font-weight:700; letter-spacing:.04em;
   padding:2px 7px; border-radius:999px;
 }
+
+/* ==========================================================================
+   NSFW detection — badges, grid blur, and the focus-view gate
+   ========================================================================== */
+.nsfw-badge{
+  display:inline-flex; align-items:center; gap:4px;
+  background: rgba(216,79,79,.92); color:#fff; font-size:10px; font-weight:700;
+  letter-spacing:.03em; text-transform:uppercase; padding:2px 7px; border-radius:4px;
+}
+.pin-item .nsfw-badge{ position:absolute; top:6px; left:6px; z-index:2; }
+.nsfw-badge-video{ background: rgba(216,79,79,.92) !important; }
+
+/* Grid thumbnails: flagged items stay pixelated (via a heavy blur, which
+   reads the same as the focus-view mosaic at thumbnail size) until unblurred
+   in focus view — the grid itself has no per-card unblur, only the badge. */
+.pin-item.nsfw-flagged img,
+.vcard-thumb.nsfw-flagged img,
+.vcard-thumb.nsfw-flagged video{
+  filter: blur(18px) saturate(0.7);
+  transform: scale(1.08); /* hides blurred edge fringing */
+}
+
+.focus-img-wrap{ position:relative; }
+.focus-img-wrap #focusImg{ display:block; }
+#focusNsfwCanvas{
+  position:absolute; inset:0; width:100%; height:100%;
+  object-fit:contain; border-radius: var(--radius-lg);
+}
+.nsfw-gate{
+  position:absolute; inset:0; z-index:3;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+  background: rgba(10,10,12,.35); border-radius: var(--radius-lg);
+  text-align:center; padding:20px;
+}
+.nsfw-gate-icon{ color:#fff; opacity:.9; }
+.nsfw-gate-text{
+  color:#fff; font-size:13px; font-weight:600; letter-spacing:.01em;
+  text-shadow: 0 1px 3px rgba(0,0,0,.6);
+}
+.nsfw-rehide-btn{
+  position:absolute; top:10px; right:10px; z-index:3;
+  background: rgba(10,10,12,.72); color:#fff; border:1px solid rgba(255,255,255,.25);
+  font-size:11px; font-weight:600; padding:5px 10px; border-radius:8px; cursor:pointer;
+}
+.nsfw-rehide-btn:hover{ background: rgba(10,10,12,.88); }

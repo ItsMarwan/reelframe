@@ -316,3 +316,57 @@ function toggleCategoryFav(cat){
 
 function loadNsfwUnlocked(){ return localStorage.getItem(NSFW_FEATURE_UNLOCK_KEY) === '1'; }
 function saveNsfwUnlocked(){ localStorage.setItem(NSFW_FEATURE_UNLOCK_KEY, state.nsfwFeatureUnlocked ? '1' : '0'); }
+
+/* New — NSFW scan trigger + display settings */
+function loadNsfwScanOnStartup(){ return localStorage.getItem(NSFW_SCAN_ON_STARTUP_KEY) === '1'; }
+function saveNsfwScanOnStartup(){ localStorage.setItem(NSFW_SCAN_ON_STARTUP_KEY, state.nsfwScanOnStartup ? '1' : '0'); }
+function loadNsfwBlurEnabled(){
+  const raw = localStorage.getItem(NSFW_BLUR_ENABLED_KEY);
+  return raw === null ? true : raw === '1';
+}
+function saveNsfwBlurEnabled(){ localStorage.setItem(NSFW_BLUR_ENABLED_KEY, state.nsfwBlurEnabled ? '1' : '0'); }
+
+/* New — NSFW scan result cache, keyed by favKey(item) ("type:path"). Kept in
+   localStorage (like watchProgress) so it round-trips through the existing
+   export/import backup flow with no extra plumbing. */
+function loadNsfwResults(){
+  try{ const raw = localStorage.getItem(NSFW_RESULTS_KEY); return raw ? JSON.parse(raw) : {}; }
+  catch(e){ return {}; }
+}
+function saveNsfwResults(){
+  try{ localStorage.setItem(NSFW_RESULTS_KEY, JSON.stringify(state.nsfwResults)); }
+  catch(e){ /* storage full — worst case we just re-scan next time */ }
+}
+
+/* New — region ("spot") detection cache + resumable queue. Boxes are stored
+   as fractions of image width/height (0–1), not pixels, so they stay valid
+   regardless of what size the photo is displayed at. */
+function loadNsfwRegions(){
+  try{ const raw = localStorage.getItem(NSFW_REGIONS_KEY); return raw ? JSON.parse(raw) : {}; }
+  catch(e){ return {}; }
+}
+function saveNsfwRegions(){
+  try{ localStorage.setItem(NSFW_REGIONS_KEY, JSON.stringify(state.nsfwRegions)); }
+  catch(e){ /* storage full — worst case we just re-scan next time */ }
+}
+
+/* Lets a region scan survive a pause, a settings-modal close, or even a
+   full page reload and pick back up where it left off, instead of starting
+   the whole library over. */
+function loadNsfwRegionQueue(){
+  try{
+    const raw = localStorage.getItem(NSFW_REGION_QUEUE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(Array.isArray(parsed.keys) && typeof parsed.index === 'number') return parsed;
+    return null;
+  }catch(e){ return null; }
+}
+function saveNsfwRegionQueue(keys, index){
+  try{ localStorage.setItem(NSFW_REGION_QUEUE_KEY, JSON.stringify({ keys, index })); }
+  catch(e){ /* ignore */ }
+}
+function clearNsfwRegionQueue(){
+  try{ localStorage.removeItem(NSFW_REGION_QUEUE_KEY); }
+  catch(e){ /* ignore */ }
+}

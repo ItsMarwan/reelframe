@@ -60,6 +60,8 @@ async function initAppUI(){
     bindViewTab();
     bindViewTab();
     bindRefreshLibraryButton();
+    bindNsfwFocusGate();
+    bindNsfwRegionScanButtons();
     consumePairParamIfPresent();
     window.addEventListener('popstate', syncViewFromURL);
     // Keep retrying any video/pair thumbnail that never came in — but only
@@ -72,6 +74,7 @@ async function initAppUI(){
     (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => {
       prewarmCaptionModel();
       buildTranscriptIndex();
+      maybeAutoScanNsfwOnStartup();
     });
   }
   syncViewFromURL();

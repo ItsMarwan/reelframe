@@ -357,7 +357,14 @@ function openFocus(item, opts = {}){
     focusImgEl.src = ensureItemUrl(item);
   }
   focusImgEl.alt = item.name;
-  focusImgEl.onclick = () => openImagePop(item);
+  focusImgEl.onclick = () => {
+    // Don't let the zoom pop-out bypass a blur gate that hasn't been
+    // unblurred yet — the gate overlay/canvas already intercepts clicks in
+    // that case, but this covers the img element underneath too.
+    if(shouldGateItem(item)) return;
+    openImagePop(item);
+  };
+  applyFocusNsfwGate(item);
   document.getElementById('focusTitle').textContent = item.name;
   const focusMetaEl = document.getElementById('focusMeta');
   focusMetaEl.innerHTML = `<span class="meta-cat-link" data-cat="${escapeAttr(item.category)}" title="Jump to this category">${escapeHtml(item.category)}</span> · ${escapeHtml(formatDate(item.lastModified))} · ${escapeHtml(formatBytes(item.size))}`;

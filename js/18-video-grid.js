@@ -106,13 +106,15 @@ function appendVideoCards(count){
   const end = Math.min(list.length, rendered + count);
   for(let idx = rendered; idx < end; idx++){
     const item = list[idx];
+    const gated = shouldGateItem(item);
     const card = document.createElement('div');
     card.className = 'vcard';
     card.dataset.idx = idx;
     card._rfItem = item;
     card.innerHTML = `
-      <div class="vcard-thumb">
+      <div class="vcard-thumb ${gated ? 'nsfw-flagged' : ''}">
         ${isWatchLater(item)?'<span class="vcard-badge">Watch later</span>':''}
+        ${gated ? `<span class="vcard-badge nsfw-badge-video" title="Flagged as possible NSFW content">${nsfwWarningIconSVG()} NSFW</span>` : ''}
         <div class="thumb-fallback">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z" stroke="currentColor" stroke-width="1.5"/><path d="m21 8 -4 3 4 3V8Z" fill="currentColor"/></svg>
         </div>
