@@ -356,6 +356,38 @@ function bindSettingsModal(){
   const discoverToggle = document.getElementById('discoverToggle');
   const realMiniPlayerToggle = document.getElementById('realMiniPlayerToggle');
   const installBtn = document.getElementById('installAppBtn');
+  const miniPlayerEnabledToggle = document.getElementById('miniPlayerEnabledToggle');
+  const nsfwScanBtn = document.getElementById('nsfwScanBtn');
+  const redeemCodeInput = document.getElementById('redeemCodeInput');
+  const redeemCodeBtn = document.getElementById('redeemCodeBtn');
+
+  function refreshNsfwFeatureUI(){
+    if(nsfwScanBtn) nsfwScanBtn.disabled = !state.nsfwFeatureUnlocked;
+  }
+  refreshNsfwFeatureUI();
+
+  if(redeemCodeBtn){
+    redeemCodeBtn.addEventListener('click', () => {
+      const code = (redeemCodeInput.value || '').trim();
+      if(!code){ toast('Enter a code first.'); return; }
+      if(code.toUpperCase() === NSFW_REDEEM_CODE){
+        state.nsfwFeatureUnlocked = true;
+        saveNsfwUnlocked();
+        refreshNsfwFeatureUI();
+        toast('Code redeemed — NSFW detection unlocked (beta).');
+      } else {
+        toast('That code is not valid.');
+      }
+      redeemCodeInput.value = '';
+    });
+    redeemCodeInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') redeemCodeBtn.click(); });
+  }
+  if(nsfwScanBtn){
+    nsfwScanBtn.addEventListener('click', () => {
+      toast('NSFW detection is still in development — check back soon.');
+    });
+  }
+
 
   const importInput = document.createElement('input');
   importInput.type = 'file';
@@ -367,6 +399,7 @@ function bindSettingsModal(){
     algoToggle.checked = state.algoEnabled;
     discoverToggle.checked = state.discoverEnabled;
     realMiniPlayerToggle.checked = state.realMiniPlayerEnabled;
+    if(miniPlayerEnabledToggle) miniPlayerEnabledToggle.checked = state.miniPlayerEnabled;
     lockToggle.checked = state.lockEnabled;
     shareAutoApproveSelect.value = state.shareAutoApprove;
     lockPasswordInput.value = '';
@@ -476,6 +509,14 @@ function bindSettingsModal(){
       deferredInstallPrompt = null;
       installBtn.hidden = true;
       toast(choice.outcome === 'accepted' ? 'Installing Reelframe…' : 'Install dismissed');
+    });
+  }
+
+  if(miniPlayerEnabledToggle){
+    miniPlayerEnabledToggle.addEventListener('change', () => {
+      state.miniPlayerEnabled = miniPlayerEnabledToggle.checked;
+      saveMiniPlayerEnabledSetting();
+      toast(state.miniPlayerEnabled ? 'Mini player enabled' : 'Mini player disabled');
     });
   }
 

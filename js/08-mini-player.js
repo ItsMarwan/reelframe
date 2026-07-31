@@ -60,6 +60,11 @@ async function dockMiniPlayer(){
   const video = document.getElementById('videoPlayer');
   if(!video) return;
 
+  if(!state.miniPlayerEnabled){ // NEW — setting off: just pause, no floating window
+    video.pause();
+    return;
+  }
+
   if(state.realMiniPlayerEnabled && document.pictureInPictureEnabled && !video.disablePictureInPicture){
     try{
       if(document.pictureInPictureElement !== video) await video.requestPictureInPicture();

@@ -112,6 +112,17 @@ function resetImageViewer(){
   applyImageViewerState();
 }
 
+function applySavedImagePopSize(frame){
+  const saved = loadImagePopSize();
+  if(!saved) return;
+  const maxW = window.innerWidth - 24;
+  const maxH = window.innerHeight - 24;
+  const w = clampValue(saved.wPct * window.innerWidth, 260, maxW);
+  const h = clampValue(saved.hPct * window.innerHeight, 200, maxH);
+  frame.style.width = `${Math.round(w)}px`;
+  frame.style.height = `${Math.round(h)}px`;
+}
+
 function openImagePop(item){
   const overlay = document.getElementById('imagePopOverlay');
   const frame = document.getElementById('imagePopFrame');
@@ -121,6 +132,7 @@ function openImagePop(item){
   img.alt = item.name;
   overlay.hidden = false;
   imageViewerState = { scale: 1, panX: 0, panY: 0, baseWidth: 0, baseHeight: 0, fitScale: 1 };
+  applySavedImagePopSize(frame);
 
   const place = () => {
     const viewportW = frame.clientWidth || window.innerWidth;
@@ -143,7 +155,14 @@ function openImagePop(item){
 
 function closeImagePop(){
   document.getElementById('imagePopOverlay').hidden = true;
+  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
   resetImageViewer();
+  const frame = document.getElementById('imagePopFrame');
+  if(frame){
+    frame.style.left = ''; frame.style.top = ''; frame.style.width = ''; frame.style.height = ''; frame.style.transform = '';
+    frame.classList.remove('positioned');
+  }
+  popFramePositioned = false;
 }
 
 function bindImagePopOverlay(){
@@ -151,6 +170,7 @@ function bindImagePopOverlay(){
   const frame = document.getElementById('imagePopFrame');
   const resizeHandle = document.getElementById('imagePopResize');
   const closeBtn = document.getElementById('imagePopClose');
+  const dragbar = document.getElementById('imagePopDragbar');
 
   closeBtn.addEventListener('click', closeImagePop);
   overlay.addEventListener('click', (e) => { if(e.target === overlay) closeImagePop(); });
@@ -158,7 +178,18 @@ function bindImagePopOverlay(){
     if(e.key === 'Escape' && !overlay.hidden) closeImagePop();
   });
   window.addEventListener('resize', () => {
-    if(!overlay.hidden) applyImageViewerState();
+    if(overlay.hidden) return;
+    if(frame.classList.contains('positioned')) clampPopFrameToViewport(frame);
+    if(frame.style.width || frame.style.height){
+      const maxW = window.innerWidth - 24;
+      const maxH = window.innerHeight - 24;
+      const rect = frame.getBoundingClientRect();
+      if(rect.width > maxW) frame.style.width = `${maxW}px`;
+      if(rect.height > maxH) frame.style.height = `${maxH}px`;
+      recomputePopFitFromFrame();
+    } else {
+      applyImageViewerState();
+    }
   });
 
   frame.addEventListener('wheel', (e) => {
@@ -196,9 +227,62 @@ function bindImagePopOverlay(){
     frame.setPointerCapture(e.pointerId);
   });
 
+  let frameResize = null;
   resizeHandle.addEventListener('pointerdown', (e) => {
     e.stopPropagation();
+    pinPopFramePosition(frame);
+    const rect = frame.getBoundingClientRect();
+    frameResize = { startX:e.clientX, startY:e.clientY, startW:rect.width, startH:rect.height };
+    resizeHandle.setPointerCapture(e.pointerId);
   });
+  resizeHandle.addEventListener('pointermove', (e) => {
+    if(!frameResize) return;
+    frame.style.width = `${clampValue(frameResize.startW + (e.clientX - frameResize.startX), 260, window.innerWidth - 24)}px`;
+    frame.style.height = `${clampValue(frameResize.startH + (e.clientY - frameResize.startY), 200, window.innerHeight - 24)}px`;
+    recomputePopFitFromFrame();
+  });
+  const endFrameResize = () => {
+    if(frameResize){
+      const rect = frame.getBoundingClientRect();
+      saveImagePopSize(rect.width / window.innerWidth, rect.height / window.innerHeight);
+    }
+    frameResize = null;
+  };
+  resizeHandle.addEventListener('pointerup', endFrameResize);
+  resizeHandle.addEventListener('pointercancel', endFrameResize);
+
+  let frameDrag = null;
+  dragbar.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    pinPopFramePosition(frame);
+    const rect = frame.getBoundingClientRect();
+    frameDrag = { startX: e.clientX, startY: e.clientY, startLeft: rect.left, startTop: rect.top };
+    frame.classList.add('dragging');
+    dragbar.setPointerCapture(e.pointerId);
+  });
+  dragbar.addEventListener('pointermove', (e) => {
+    if(!frameDrag) return;
+    const rect = frame.getBoundingClientRect();
+    const maxLeft = Math.max(6, window.innerWidth - rect.width - 6);
+    const maxTop = Math.max(6, window.innerHeight - rect.height - 6);
+    frame.style.left = `${clampValue(frameDrag.startLeft + (e.clientX - frameDrag.startX), 6, maxLeft)}px`;
+    frame.style.top = `${clampValue(frameDrag.startTop + (e.clientY - frameDrag.startY), 6, maxTop)}px`;
+  });
+  const endFrameDrag = () => { frameDrag = null; frame.classList.remove('dragging'); };
+  dragbar.addEventListener('pointerup', endFrameDrag);
+  dragbar.addEventListener('pointercancel', endFrameDrag);
+
+  const fullscreenBtn = document.getElementById('imagePopFullscreenBtn');
+  if(fullscreenBtn){
+    fullscreenBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+      else frame.requestFullscreen().catch(()=>{});
+    });
+    document.addEventListener('fullscreenchange', () => {
+      if(!document.getElementById('imagePopOverlay').hidden) requestAnimationFrame(recomputePopFitFromFrame);
+    });
+  }
 
   frame.addEventListener('pointermove', (e) => {
     if(!popState || popState.mode !== 'pan') return;
@@ -353,6 +437,35 @@ function openFocus(item, opts = {}){
 
   if(watchParty.role === 'host' && partyIsActive() && watchParty.item !== item) broadcastPartyItem(item);
   scrollMainTop();
+}
+
+let popFramePositioned = false;
+
+function pinPopFramePosition(frame){
+  if(popFramePositioned) return;
+  const rect = frame.getBoundingClientRect();
+  frame.style.left = `${rect.left}px`;
+  frame.style.top = `${rect.top}px`;
+  frame.style.transform = 'none';
+  frame.classList.add('positioned');
+  popFramePositioned = true;
+}
+function clampPopFrameToViewport(frame){
+  const rect = frame.getBoundingClientRect();
+  const maxLeft = Math.max(6, window.innerWidth - rect.width - 6);
+  const maxTop = Math.max(6, window.innerHeight - rect.height - 6);
+  frame.style.left = `${clampValue(rect.left, 6, maxLeft)}px`;
+  frame.style.top = `${clampValue(rect.top, 6, maxTop)}px`;
+}
+function recomputePopFitFromFrame(){
+  const frame = document.getElementById('imagePopFrame');
+  const img = document.getElementById('imagePopImg');
+  if(!frame || !img || !img.naturalWidth) return;
+  const fitScale = Math.min(1, frame.clientWidth / img.naturalWidth, frame.clientHeight / img.naturalHeight);
+  imageViewerState.baseWidth = img.naturalWidth * fitScale;
+  imageViewerState.baseHeight = img.naturalHeight * fitScale;
+  imageViewerState.fitScale = fitScale;
+  applyImageViewerState();
 }
 
 /* Re-lay the "More from this library" grid when the column count would

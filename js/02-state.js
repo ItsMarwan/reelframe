@@ -27,6 +27,8 @@ const state = {
   lockBlurDelaySeconds: loadLockBlurDelaySeconds(),
   captionsEnabled: false,
   realMiniPlayerEnabled: loadRealMiniPlayerSetting(),
+  miniPlayerEnabled: loadMiniPlayerEnabledSetting(),
+  nsfwFeatureUnlocked: loadNsfwUnlocked(),
   shareAutoApprove: loadShareAutoApproveSetting(),
   shareItem: null,
   tab: 'videos',

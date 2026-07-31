@@ -205,6 +205,24 @@ function loadShareAutoApproveSetting(){
 function saveShareAutoApproveSetting(){ localStorage.setItem(SHARE_AUTO_APPROVE_KEY, state.shareAutoApprove); }
 function loadRealMiniPlayerSetting(){ return localStorage.getItem(REAL_MINI_PLAYER_KEY) === '1'; }
 function saveRealMiniPlayerSetting(){ localStorage.setItem(REAL_MINI_PLAYER_KEY, state.realMiniPlayerEnabled ? '1' : '0'); }
+function loadMiniPlayerEnabledSetting(){
+  const raw = localStorage.getItem(MINI_PLAYER_ENABLED_KEY);
+  return raw === null ? true : raw === '1';
+}
+function saveMiniPlayerEnabledSetting(){ localStorage.setItem(MINI_PLAYER_ENABLED_KEY, state.miniPlayerEnabled ? '1' : '0'); }
+
+function loadImagePopSize(){
+  try{
+    const raw = localStorage.getItem(IMAGE_POP_SIZE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(typeof parsed.wPct === 'number' && typeof parsed.hPct === 'number') return parsed;
+    return null;
+  } catch(e){ return null; }
+}
+function saveImagePopSize(wPct, hPct){
+  try{ localStorage.setItem(IMAGE_POP_SIZE_KEY, JSON.stringify({ wPct, hPct })); } catch(e){}
+}
 
 function progressKeyForItem(item){ return `${item.type}:${item.path}`; }
 function getWatchProgress(item){ return item ? state.watchProgress[progressKeyForItem(item)] : null; }
@@ -295,3 +313,6 @@ function toggleCategoryFav(cat){
   renderSidebar();
   renderActiveGrid();
 }
+
+function loadNsfwUnlocked(){ return localStorage.getItem(NSFW_FEATURE_UNLOCK_KEY) === '1'; }
+function saveNsfwUnlocked(){ localStorage.setItem(NSFW_FEATURE_UNLOCK_KEY, state.nsfwFeatureUnlocked ? '1' : '0'); }

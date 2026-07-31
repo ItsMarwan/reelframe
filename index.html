@@ -963,6 +963,16 @@
       </div>
       <div class="setting-row">
         <div class="setting-text">
+          <div class="setting-title">Mini player</div>
+          <div class="setting-desc">Keep a video playing in a small floating window when you leave Watch. Turn this off to just pause instead.</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="miniPlayerEnabledToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
           <div class="setting-title">Real mini player (Picture-in-Picture)</div>
           <div class="setting-desc">Uses your browser's native floating window instead of Reelframe's built-in one — it can float outside the browser entirely.</div>
         </div>
@@ -1043,6 +1053,31 @@
           <div class="setting-desc">Let a phone or another computer browse this library live. Nothing is uploaded, and it's gone the moment the pairing ends here.</div>
         </div>
         <button id="openPairModalBtn" class="btn-ghost small" type="button">Pair devices</button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">
+            NSFW content detection
+            <span class="beta-badge" title="Still in development">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5.2L5.5 16a2 2 0 0 0 1.7 3h9.6a2 2 0 0 0 1.7-3L14 8.2V3" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+              BETA
+            </span>
+          </div>
+          <div class="setting-desc">Scans your whole library and flags photos that may contain NSFW content. Still in development — requires a redeem code to enable.</div>
+        </div>
+        <button id="nsfwScanBtn" class="btn-ghost small" type="button" disabled>Scan library</button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Redeem a code</div>
+          <div class="setting-desc">Have an early-access code? Enter it here to unlock beta features.</div>
+        </div>
+        <div class="setting-actions setting-password-row">
+          <form onsubmit="return false;">
+            <input id="redeemCodeInput" type="text" class="lock-password-input" placeholder="Enter code">
+            <button id="redeemCodeBtn" class="btn-ghost small" type="button">Redeem</button>
+          </form>
+        </div>
       </div>
     </div>
   </div>
@@ -1283,16 +1318,20 @@
 
 <div id="imagePopOverlay" class="img-pop-overlay" hidden>
   <button id="imagePopClose" class="img-pop-close" title="Close">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+  </button>
+  <button id="imagePopFullscreenBtn" class="img-pop-fullscreen-btn" title="Fullscreen">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 4H5a1 1 0 0 0-1 1v4M15 4h4a1 1 0 0 1 1 1v4M9 20H5a1 1 0 0 1-1-1v-4M15 20h4a1 1 0 0 0 1-1v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </button>
   <div id="imagePopFrame" class="img-pop-frame">
+    <div id="imagePopDragbar" class="img-pop-dragbar" title="Drag to move"></div>
     <img id="imagePopImg" alt="" draggable="false">
     <span id="imagePopZoom" class="img-pop-zoom">100%</span>
     <div id="imagePopResize" class="img-pop-resize" title="Drag to resize">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M20 4 4 20M20 12 12 20M20 20h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 4 4 20M20 12 12 20M20 20h-4M20 20v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     </div>
   </div>
-  <div id="imagePopHint" class="img-pop-hint">Scroll to zoom · double-click to reset · drag to pan when zoomed</div>
+  <div id="imagePopHint" class="img-pop-hint">Drag the top bar to move · scroll to zoom · double-click to reset · drag corner to resize</div>
 </div>
 
 <div id="duplicatesModalBackdrop" class="modal-backdrop" hidden>

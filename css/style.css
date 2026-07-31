@@ -128,6 +128,8 @@ a, button:focus-visible, input:focus-visible, [tabindex]:focus-visible{
 }
 .lock-input{ margin-bottom: 18px; }
 
+#lockGate{ z-index: 200 !important; } /* always above every modal/overlay, including image pop */
+
 /* Custom-styled inline input (e.g. "Add from a URL") — same premium look as
    the lock-screen password field, sized to sit inline next to a button. */
 .url-input-row{
@@ -1607,13 +1609,12 @@ img, video{
    Image pop-out viewer (draggable + resizable)
    ========================================================================== */
 .img-pop-overlay{
-  position:fixed; inset:0; z-index:90;
-  background: rgba(6,7,10,.88); backdrop-filter: blur(2px);
-  cursor: default;
+  position:fixed; inset:0; z-index:150;
+  background: rgba(6,7,9,.72);
+  backdrop-filter: blur(3px);
 }
-.img-pop-overlay[hidden]{ display:none; }
 .img-pop-close{
-  position:fixed; top:20px; right:24px; z-index:92;
+  position:fixed; top:20px; right:20px; z-index:92;
   width:38px; height:38px; border-radius:50%;
   background: var(--surface-2); border:1px solid var(--border); color: var(--text);
   display:flex; align-items:center; justify-content:center;
@@ -1621,15 +1622,34 @@ img, video{
 }
 .img-pop-close:hover{ background: var(--surface-3); }
 .img-pop-frame{
-  position:absolute; inset:0;
-  border-radius: 0; overflow:hidden;
-  box-shadow: none;
-  border: none;
-  cursor: grab;
-  background: transparent;
-  user-select:none;
-  -webkit-user-select:none;
+  position:fixed;
+  left:50%; top:50%;
+  width:78vw; height:78vh;
+  transform: translate(-50%,-50%);
+  border-radius: var(--radius-lg);
+  overflow:hidden;
+  background: var(--bg-alt);
+  border:1px solid var(--border);
+  box-shadow: var(--shadow-pop);
+  cursor:default;
+  user-select:none; -webkit-user-select:none;
 }
+.img-pop-frame.positioned{ transform:none; }
+.img-pop-frame:fullscreen{ width:100vw !important; height:100vh !important; border-radius:0; }
+.img-pop-dragbar{
+  position:absolute; top:0; left:0; right:0; height:34px; z-index:2;
+  cursor:grab;
+  background: linear-gradient(180deg, rgba(0,0,0,.35), transparent);
+}
+.img-pop-dragbar:active{ cursor:grabbing; }
+.img-pop-fullscreen-btn{
+  position:fixed; top:20px; right:74px; z-index:92;
+  width:38px; height:38px; border-radius:50%;
+  background: var(--surface-2); border:1px solid var(--border); color: var(--text);
+  display:flex; align-items:center; justify-content:center;
+  transition: background .15s ease;
+}
+.img-pop-fullscreen-btn:hover{ background: var(--surface-3); }
 .img-pop-frame.dragging{ cursor: grabbing; }
 .img-pop-frame img{
   position:absolute; left:50%; top:50%;
@@ -2200,3 +2220,12 @@ img, video{
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .player-scrub-chapter:empty{ display:none; }
+
+
+.beta-badge{
+  display:inline-flex; align-items:center; gap:4px; vertical-align:middle; margin-left:8px;
+  background: rgba(157,132,232,.15); color: var(--violet);
+  border:1px solid rgba(157,132,232,.35);
+  font-size:10px; font-weight:700; letter-spacing:.04em;
+  padding:2px 7px; border-radius:999px;
+}
