@@ -1,14 +1,26 @@
 /* ==========================================================================
    NSFW content detection — runs entirely on-device (tfjs + nsfwjs, GPU-
    accelerated via WebGL when available, falling back to CPU/WASM). Nothing
-   ever leaves the browser: the model file is fetched once from its CDN and
-   cached by the browser like any other asset, and every classification runs
-   against a local <img>/canvas element.
+   ever leaves the browser: every classification runs against a local
+   <img>/canvas element.
 
-   Scope: photos only (this mirrors the existing Settings copy, which has
-   always said "flags photos"). Video items get their generated thumbnail
-   frame checked too, since that's already a cheap canvas image — but full
-   video playback isn't scanned frame-by-frame.
+   Scope: photos only — videos are never scanned (not even their thumbnail).
+   This keeps a scan fast and matches the Settings copy, which has always
+   said "flags photos".
+
+   Model download + caching: the first time a scan runs, nsfwjs.load() pulls
+   the model from its CDN, which can take a moment on a slow connection — the
+   progress toast says so explicitly while that download is in flight. Right
+   after that first download, the model is saved into this browser's
+   IndexedDB (nsfwjs supports this natively — see loadNsfwModel below), so
+   every scan after that — including on a fresh page load — loads instantly
+   from disk instead of hitting the network again.
+
+   Category picker: scanning the whole library every time gets slow once a
+   library is large, so the Settings scan button is paired with a "which
+   category" dropdown (populated from the same photo categories used
+   elsewhere in the app). Pick "All photos" to scan everything, or a single
+   folder to just scan that.
 
    Caveat worth knowing: nsfwjs is a whole-image classifier, not an object
    detector — it has no idea *where* in the frame anything is, only how
@@ -67,7 +79,43 @@ function loadNsfwModel(){
       if(typeof nsfwjs === 'undefined' || typeof tf === 'undefined'){
         throw new Error('NSFW model library did not load (check your connection).');
       }
-      nsfwModel = await nsfwjs.load();
+
+      // Fast path: a copy already cached in this browser's IndexedDB from a
+      // previous run. No network involved at all when this succeeds.
+      //
+      // IMPORTANT: pass an actual tf.io.IOHandler here, not the string
+      // 'indexeddb://...'. nsfwjs.load() special-cases plain strings by
+      // treating them as a URL base and appending '/model.json' to them —
+      // fine for an http(s) folder, but it mangles the indexeddb scheme
+      // into something no registered IOHandler matches, so the load fails
+      // before any network request is even made. Passing the IOHandler
+      // object directly bypasses that string handling entirely.
+      try{
+        nsfwModel = await nsfwjs.load(tf.io.browserIndexedDB(NSFW_MODEL_CACHE_KEY));
+        return nsfwModel;
+      }catch(e){
+        // Nothing cached yet (first run ever, cache was cleared, etc.) —
+        // fall through to a real download below.
+        console.info('NSFW model: no cached copy in IndexedDB yet, downloading from CDN.', e);
+      }
+
+      showNsfwProgress('Downloading NSFW detection model (first run only)…', 0, 0);
+      try{
+        nsfwModel = await nsfwjs.load();
+      }catch(e){
+        console.error('NSFW model: CDN download failed.', e);
+        throw e;
+      } finally {
+        hideNsfwProgress();
+      }
+
+      // Cache it for next time so future scans — and future app launches —
+      // skip the download entirely. Best-effort: if IndexedDB isn't
+      // available (private browsing, storage quota, etc.) the model still
+      // works fine, it just won't be cached and will re-download next time.
+      try{ await nsfwModel.model.save(tf.io.browserIndexedDB(NSFW_MODEL_CACHE_KEY)); }
+      catch(e){ console.warn('NSFW model: could not cache to IndexedDB (non-fatal).', e); }
+
       return nsfwModel;
     } finally {
       nsfwModelLoading = null;
@@ -119,25 +167,6 @@ async function scanImageItemForNsfw(item){
   return record;
 }
 
-async function scanVideoThumbForNsfw(item){
-  await ensureVideoMeta(item);
-  if(!item.thumb) return null;
-  let img;
-  try{ img = await loadImageElement(item.thumb); }
-  catch(e){ return null; }
-  const result = await classifyImageElement(img);
-  const record = {
-    flagged: result.flagged,
-    score: Math.round(result.score * 1000) / 1000,
-    label: result.label,
-    size: item.size,
-    lastModified: item.lastModified,
-    scannedAt: Date.now(),
-  };
-  state.nsfwResults[nsfwCacheKey(item)] = record;
-  return record;
-}
-
 /* ---------- progress toast — shared by this file and 36-nsfw-regions.js ---------- */
 
 function showNsfwProgress(label, processed, total){
@@ -158,45 +187,75 @@ function hideNsfwProgress(){
 
 /* ---------- full-library scan ---------- */
 
-function nsfwScanTargets(force){
-  const images = state.rawImages.filter(i => !i.pairRemote);
-  const videos = state.rawVideos.filter(i => !i.pairRemote);
-  const all = [...images.map(i => ({ item: i, kind: 'image' })), ...videos.map(i => ({ item: i, kind: 'video' }))];
+function nsfwScanTargets(force, category){
+  let images = state.rawImages.filter(i => !i.pairRemote);
+  if(category && category !== 'all') images = images.filter(i => i.category === category);
+  const all = images.map(i => ({ item: i }));
   if(force) return all;
   return all.filter(({ item }) => !isNsfwRecordFresh(item, getNsfwRecord(item)));
+}
+
+/* ---------- category picker (Settings) ---------- */
+
+function getNsfwScanCategorySelectEl(){
+  return document.getElementById('nsfwScanCategorySelect');
+}
+
+function getSelectedNsfwScanCategory(){
+  const el = getNsfwScanCategorySelectEl();
+  return el ? (el.value || 'all') : 'all';
+}
+
+/* Keeps the dropdown's option list in sync with the photo categories that
+   actually exist right now, without clobbering whatever the person has
+   currently selected (falls back to "All photos" if that category no
+   longer exists, e.g. the folder was removed). */
+function populateNsfwScanCategorySelect(){
+  const select = getNsfwScanCategorySelectEl();
+  if(!select) return;
+  const cats = (state.categoriesByTab && state.categoriesByTab.images) ? state.categoriesByTab.images : [];
+  const current = select.value || 'all';
+  select.innerHTML = `<option value="all">All photos</option>${cats.map(cat => `<option value="${escapeAttr(cat)}">${escapeHtml(cat)}</option>`).join('')}`;
+  select.value = (current === 'all' || cats.includes(current)) ? current : 'all';
 }
 
 async function scanLibraryForNsfw(opts = {}){
   if(!state.nsfwFeatureUnlocked){ toast('Redeem a code to unlock NSFW detection first.'); return; }
   if(nsfwScanState.running){ toast('A scan is already running.'); return; }
 
-  const targets = nsfwScanTargets(!!opts.force);
+  // opts.category lets callers (e.g. the quiet startup auto-scan) force a
+  // specific scope; otherwise use whatever category is picked in Settings.
+  const category = opts.category || getSelectedNsfwScanCategory();
+  const categoryLabel = category === 'all' ? '' : ` in “${category}”`;
+
+  const targets = nsfwScanTargets(!!opts.force, category);
   if(!targets.length){
-    toast('Nothing new to scan — everything is already up to date.');
+    toast(`Nothing new to scan${categoryLabel} — everything is already up to date.`);
     return;
   }
 
   try{
     await loadNsfwModel();
   }catch(e){
+    console.error('NSFW scan: could not load model.', e);
     toast('Could not load the NSFW model — check your connection and try again.');
     return;
   }
 
   nsfwScanState = { running: true, processed: 0, total: targets.length, cancel: false };
   updateNsfwScanUI();
-  if(!opts.quiet) toast(`Scanning ${targets.length} photo${targets.length === 1 ? '' : 's'} for NSFW content…`);
-  showNsfwProgress('Scanning for NSFW content…', 0, targets.length);
+  if(!opts.quiet) toast(`Scanning ${targets.length} photo${targets.length === 1 ? '' : 's'}${categoryLabel} for NSFW content…`);
+  showNsfwProgress(`Scanning for NSFW content${categoryLabel}…`, 0, targets.length);
 
   let flaggedCount = 0;
-  for(const { item, kind } of targets){
+  for(const { item } of targets){
     if(nsfwScanState.cancel) break;
     try{
-      const record = kind === 'image' ? await scanImageItemForNsfw(item) : await scanVideoThumbForNsfw(item);
+      const record = await scanImageItemForNsfw(item);
       if(record && record.flagged) flaggedCount++;
     }catch(e){ /* skip whatever file wouldn't decode */ }
     nsfwScanState.processed++;
-    showNsfwProgress('Scanning for NSFW content…', nsfwScanState.processed, nsfwScanState.total);
+    showNsfwProgress(`Scanning for NSFW content${categoryLabel}…`, nsfwScanState.processed, nsfwScanState.total);
     if(nsfwScanState.processed % 5 === 0 || nsfwScanState.processed === nsfwScanState.total){
       saveNsfwResults();
       updateNsfwScanUI();
@@ -229,9 +288,9 @@ function cancelNsfwScan(){
    every launch and shouldn't nag. */
 async function maybeAutoScanNsfwOnStartup(){
   if(!state.nsfwFeatureUnlocked || !state.nsfwScanOnStartup) return;
-  const targets = nsfwScanTargets(false);
+  const targets = nsfwScanTargets(false, 'all');
   if(!targets.length) return;
-  await scanLibraryForNsfw({ quiet: true });
+  await scanLibraryForNsfw({ quiet: true, category: 'all' });
 }
 
 /* ---------- settings modal UI ---------- */
@@ -239,6 +298,9 @@ async function maybeAutoScanNsfwOnStartup(){
 function updateNsfwScanUI(){
   const btn = document.getElementById('nsfwScanBtn');
   const status = document.getElementById('nsfwScanStatus');
+  const categorySelect = getNsfwScanCategorySelectEl();
+  populateNsfwScanCategorySelect();
+  if(categorySelect) categorySelect.disabled = !state.nsfwFeatureUnlocked || nsfwScanState.running;
   if(btn){
     if(!state.nsfwFeatureUnlocked){
       btn.disabled = true;

@@ -1072,9 +1072,14 @@
               BETA
             </span>
           </div>
-          <div class="setting-desc">Scans your whole library and flags photos that may contain NSFW content. Still in development — requires a redeem code to enable.</div>
+          <div class="setting-desc">Scans your photos and flags any that may contain NSFW content. Still in development — requires a redeem code to enable.</div>
         </div>
-        <button id="nsfwScanBtn" class="btn-ghost small" type="button" disabled>Scan library</button>
+        <div class="setting-actions">
+          <select id="nsfwScanCategorySelect" class="filter-select" disabled>
+            <option value="all">All photos</option>
+          </select>
+          <button id="nsfwScanBtn" class="btn-ghost small" type="button" disabled>Scan library</button>
+        </div>
       </div>
       <div class="setting-row">
         <div class="setting-text">
