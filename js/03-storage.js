@@ -271,11 +271,22 @@ function favKey(item){ return `${item.type}:${item.path}`; }
 function isFav(item){ return state.favorites.has(favKey(item)); }
 function toggleFav(item){
   const key = favKey(item);
-  if(state.favorites.has(key)) state.favorites.delete(key);
-  else state.favorites.add(key);
+  if(state.favorites.has(key)){
+    state.favorites.delete(key);
+    delete state.favoriteTimestamps[key];
+  } else {
+    state.favorites.add(key);
+    state.favoriteTimestamps[key] = Date.now();
+  }
   saveFavorites();
+  saveFavoriteTimestamps();
   updateFavCount();
 }
+function loadFavoriteTimestamps(){
+  try{ const raw = localStorage.getItem(FAVORITE_TIMESTAMPS_KEY); return raw ? JSON.parse(raw) : {}; }
+  catch(e){ return {}; }
+}
+function saveFavoriteTimestamps(){ localStorage.setItem(FAVORITE_TIMESTAMPS_KEY, JSON.stringify(state.favoriteTimestamps)); }
 function isCategoryFav(cat){ return state.categoryFavorites.has(cat); }
 function toggleCategoryFav(cat){
   if(state.categoryFavorites.has(cat)) state.categoryFavorites.delete(cat);

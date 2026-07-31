@@ -13,7 +13,11 @@ function getFiltered(tab){
   } else {
     list = itemsForTab(tab);
   }
-  if(cat === '__fav__') list = list.filter(isFav);
+  if(cat === '__fav__'){
+    // NEW — attach when each item was liked, so "Latest/Oldest" reflects
+    // like order rather than file date.
+    list = list.filter(isFav).map(i => ({ ...i, _addedTs: state.favoriteTimestamps[favKey(i)] || i.lastModified || 0 }));
+  }
   else if(cat === '__history__') list = historyItemsFor(tab);
   else if(cat && cat !== '__snapshots__' && cat !== '__watchlater__' && cat !== '__captioned__') list = list.filter(i => i.category === cat);
   if(state.filters[tab].category && state.filters[tab].category !== 'all'){
@@ -45,8 +49,8 @@ function historyItemsFor(tab){
 }
 function applySort(list, mode){
   switch(mode){
-    case 'new': return list.sort((a,b) => (b._historyTs ?? b.lastModified ?? 0) - (a._historyTs ?? a.lastModified ?? 0));
-    case 'old': return list.sort((a,b) => (a._historyTs ?? a.lastModified ?? 0) - (b._historyTs ?? b.lastModified ?? 0));
+    case 'new': return list.sort((a,b) => (b._historyTs ?? b._addedTs ?? b.lastModified ?? 0) - (a._historyTs ?? a._addedTs ?? a.lastModified ?? 0));
+    case 'old': return list.sort((a,b) => (a._historyTs ?? a._addedTs ?? a.lastModified ?? 0) - (b._historyTs ?? b._addedTs ?? b.lastModified ?? 0));
     case 'az':  return list.sort((a,b) => a.name.localeCompare(b.name));
     case 'za':  return list.sort((a,b) => b.name.localeCompare(a.name));
     case 'random':

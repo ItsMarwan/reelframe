@@ -5,16 +5,9 @@ function updateFooterPositioning(){
   const footerContainer = document.getElementById('footerContainer');
   if(!footerContainer) return;
   const isGridView = currentViewType === 'grid';
-  if(isGridView){
-    footerContainer.classList.remove('is-normal');
-    loadFooterCollapsedState();
-    applyFooterCollapsedState();
-  } else {
-    footerContainer.classList.add('is-normal');
-    footerContainer.classList.remove('collapsed');
-    footerCollapsed = false;
-    updateFooterToggleText();
-  }
+  footerContainer.classList.toggle('is-normal', !isGridView);
+  loadFooterCollapsedState();
+  applyFooterCollapsedState();
 }
 
 function loadFooterCollapsedState(){

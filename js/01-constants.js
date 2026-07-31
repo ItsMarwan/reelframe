@@ -33,6 +33,7 @@ const REAL_MINI_PLAYER_KEY = 'reelframe-real-mini-player-v1';
 const LOCK_ENABLED_KEY = 'reelframe-lock-enabled-v1';
 const LOCK_PASSWORD_KEY = 'reelframe-lock-password-v1';
 const SHARE_AUTO_APPROVE_KEY = 'reelframe-share-auto-approve-v1';
+const FAVORITE_TIMESTAMPS_KEY = 'reelframe-favorite-timestamps-v1';
 
 /* New in this pass */
 const LOCK_TIMEOUT_KEY = 'reelframe-lock-timeout-min-v1';       // auto-lock after N minutes idle (0 = disabled)

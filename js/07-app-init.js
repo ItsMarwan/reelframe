@@ -174,6 +174,22 @@ function setTab(tab, opts = {}){
   if(!opts.skipRender) renderActiveGrid();
 }
 
+/* Carries the active category from one tab to another when the person
+   switches tabs — e.g. sitting in "Nature" under Videos and switching to
+   Photos jumps straight to "Nature" there too, if that category exists
+   in Photos. If it doesn't exist there, the target tab's category is
+   left untouched (whatever it last was). Special views (__fav__,
+   __history__, etc.) and Uncategorized are never carried over — those
+   are per-tab states, not real folders shared across tabs. */
+function syncCategoryAcrossTab(fromTab, toTab){
+  if(!(fromTab in state.cat) || !(toTab in state.cat)) return;
+  const cat = state.cat[fromTab];
+  if(!cat || cat.startsWith('__') || cat === UNCATEGORIZED) return;
+  const targetCats = (state.categoriesByTab && state.categoriesByTab[toTab]) || [];
+  if(targetCats.includes(cat)) state.cat[toTab] = cat;
+  // else: leave state.cat[toTab] exactly as it was
+}
+
 function updateTotalCount(){
   const n = state.videos.length + state.images.length + state.audio.length + state.snapshots.length;
   document.getElementById('totalCount').textContent = `${n} item${n===1?'':'s'}`;
@@ -222,6 +238,7 @@ function bindTabAndSortEvents(){
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-tab');
       if(tab === state.tab) return;
+      syncCategoryAcrossTab(state.tab, tab); // NEW
       setTab(tab, { skipRender:true });
       switchViewsForTab();
       clearUrlParams();
@@ -276,6 +293,8 @@ function switchViewsForTab(){
     state.snapshotSelectMode = false;
     state.selectedSnapshots.clear();
     document.getElementById('downloadSelectedSnapshotsBtn').style.display = 'none';
+    const deleteBtn = document.getElementById('deleteSelectedSnapshotsBtn'); // NEW
+    if(deleteBtn) deleteBtn.style.display = 'none';                          // NEW
   }
 }
 function categoryUrlValue(tab){

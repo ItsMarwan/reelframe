@@ -299,15 +299,57 @@ function renderFilterControls(){
   });
 }
 
+function isTimeOrderedCategory(cat){
+  return cat === '__fav__' || cat === '__history__' || cat === '__snapshots__';
+}
+
+let sortBeforeSpecial = { videos: null, images: null, music: null };
+
+/* For Liked / History / Snapshots, only "Latest" and "Oldest" make sense —
+   Shuffle and A–Z/Z–A get hidden, and the sort mode is forced to one of
+   the two (remembering whatever was active before, to restore on leaving). */
+function updateSortControlsForTab(tab){
+  const group = document.querySelector(
+    tab === 'videos' ? '#videosGrid .sort-group' :
+    tab === 'images' ? '#imagesGrid .sort-group' : null
+  );
+  if(!group) return;
+
+  const special = isTimeOrderedCategory(state.cat[tab]);
+  const randomBtn = group.querySelector('[data-sort="random"]');
+  const newBtn = group.querySelector('[data-sort="new"]');
+  const oldBtn = group.querySelector('[data-sort="old"]');
+  const azBtn = group.querySelector('[data-sort="az"]');
+  const zaBtn = group.querySelector('[data-sort="za"]');
+
+  [randomBtn, azBtn, zaBtn].forEach(b => { if(b) b.hidden = special; });
+  if(newBtn) newBtn.textContent = special ? 'Latest' : 'Newest';
+  if(oldBtn) oldBtn.textContent = 'Oldest';
+
+  if(special){
+    if(state.sort[tab] !== 'new' && state.sort[tab] !== 'old'){
+      sortBeforeSpecial[tab] = state.sort[tab];
+      state.sort[tab] = 'new';
+    }
+  } else if(sortBeforeSpecial[tab]){
+    state.sort[tab] = sortBeforeSpecial[tab];
+    sortBeforeSpecial[tab] = null;
+  }
+
+  group.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === state.sort[tab]));
+}
+
 function renderActiveGrid(){
   renderFilterControls();
   if(state.tab === 'videos'){
+    updateSortControlsForTab('videos');   // NEW
     document.getElementById('videosHeading').textContent = headingFor('videos');
     document.getElementById('forYouImagesSection').hidden = true;
     renderDiscoverSections();
     renderForYouRow();
     renderVideoGrid();
   } else if(state.tab === 'images'){
+    updateSortControlsForTab('images');   // NEW
     document.getElementById('imagesHeading').textContent = headingFor('images');
     document.getElementById('forYouSection').hidden = true;
     renderForYouImagesRow();

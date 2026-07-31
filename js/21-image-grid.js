@@ -24,6 +24,8 @@ function renderImageGrid(){
       state.snapshotSelectMode = false;
       state.selectedSnapshots.clear();
       document.getElementById('downloadSelectedSnapshotsBtn').style.display = 'none';
+      const deleteBtn = document.getElementById('deleteSelectedSnapshotsBtn'); // NEW
+      if(deleteBtn) deleteBtn.style.display = 'none';                          // NEW
     }
   }
 
@@ -84,6 +86,7 @@ function createPinCard(item, opts = {}){
         checkbox.classList.add('checked');
       }
       updateDownloadSelectedBtn();
+      updateDeleteSelectedBtn(); // NEW
     });
   }
 

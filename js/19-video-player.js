@@ -252,6 +252,17 @@ function saveSnapshot(blob, videoName, timestamp, videoPath){
   });
 }
 
+function deleteSnapshotRecord(id){
+  return new Promise((resolve, reject) => {
+    initIDBSnapshots().then(db => {
+      const tx = db.transaction([SNAPSHOTS_STORE], 'readwrite');
+      const req = tx.objectStore(SNAPSHOTS_STORE).delete(id);
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve();
+    }).catch(reject);
+  });
+}
+
 async function bulkDownloadSnapshots(){
   if(!window.JSZip){ toast('Download library not ready. Please refresh and try again.'); return; }
   if(state.snapshots.length === 0){ toast('No snapshots to download'); return; }
@@ -301,21 +312,37 @@ function toggleSnapshotSelectMode(){
   state.selectedSnapshots.clear();
   const toggleBtn = document.getElementById('toggleSnapshotSelectBtn');
   const downloadBtn = document.getElementById('downloadSelectedSnapshotsBtn');
+  const deleteBtn = document.getElementById('deleteSelectedSnapshotsBtn'); // NEW
   if(state.snapshotSelectMode){
     toggleBtn.textContent = '✓ Done Selecting';
     downloadBtn.style.display = 'block';
+    if(deleteBtn) deleteBtn.style.display = 'block'; // NEW
     document.querySelectorAll('.pin-item').forEach(el => {
       if(el.querySelector('.pin-checkbox')) el.classList.add('show-checkboxes');
     });
   } else {
     toggleBtn.textContent = '☑ Select';
     downloadBtn.style.display = 'none';
+    if(deleteBtn) deleteBtn.style.display = 'none'; // NEW
     document.querySelectorAll('.pin-item.show-checkboxes').forEach(el => {
       el.classList.remove('show-checkboxes');
       el.querySelector('.pin-checkbox')?.classList.remove('checked');
     });
   }
   updateDownloadSelectedBtn();
+  updateDeleteSelectedBtn(); // NEW
+}
+
+// NEW — mirrors updateDownloadSelectedBtn
+function updateDeleteSelectedBtn(){
+  const deleteBtn = document.getElementById('deleteSelectedSnapshotsBtn');
+  if(!deleteBtn) return;
+  const selected = state.selectedSnapshots.size;
+  if(selected === 0){
+    deleteBtn.disabled = true; deleteBtn.textContent = '🗑 Delete Selected'; deleteBtn.style.opacity = '0.5';
+  } else {
+    deleteBtn.disabled = false; deleteBtn.textContent = `🗑 Delete (${selected})`; deleteBtn.style.opacity = '1';
+  }
 }
 
 function updateDownloadSelectedBtn(){
@@ -373,6 +400,39 @@ async function downloadSelectedSnapshots(){
   } finally{
     downloadBtn.disabled = false;
     downloadBtn.textContent = originalText;
+  }
+}
+
+async function deleteSelectedSnapshots(){
+  if(state.selectedSnapshots.size === 0){ toast('No snapshots selected'); return; }
+
+  const deleteBtn = document.getElementById('deleteSelectedSnapshotsBtn');
+  const originalText = deleteBtn.textContent;
+  deleteBtn.disabled = true;
+  deleteBtn.textContent = '⏳ Deleting...';
+
+  try{
+    const toDelete = state.snapshots.filter(s => state.selectedSnapshots.has(s.path));
+    let count = 0;
+    for(const snap of toDelete){
+      try{ await deleteSnapshotRecord(snap.id); count++; }
+      catch(e){ console.error('Failed to delete snapshot:', e); }
+    }
+    state.selectedSnapshots.clear();
+    await loadSnapshots();
+    updateTotalCount();
+    renderSidebar();
+    toggleSnapshotSelectMode();
+    state.snapshotSelectMode = false;
+    toggleSnapshotSelectMode(); // re-toggles into "off" state, resets buttons
+    if(state.tab === 'images') renderActiveGrid();
+    toast(`Deleted ${count} snapshot${count === 1 ? '' : 's'}`);
+  } catch(err){
+    console.error('Bulk delete error:', err);
+    toast('Failed to delete snapshots');
+  } finally{
+    deleteBtn.disabled = false;
+    deleteBtn.textContent = originalText;
   }
 }
 

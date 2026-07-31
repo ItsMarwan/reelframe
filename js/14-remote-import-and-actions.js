@@ -320,8 +320,10 @@ function bindReceiveShareModal(){
 function bindBulkDownloadButton(){
   const toggleBtn = document.getElementById('toggleSnapshotSelectBtn');
   const downloadBtn = document.getElementById('downloadSelectedSnapshotsBtn');
+  const deleteBtn = document.getElementById('deleteSelectedSnapshotsBtn'); // NEW
   if(toggleBtn) toggleBtn.addEventListener('click', toggleSnapshotSelectMode);
   if(downloadBtn) downloadBtn.addEventListener('click', downloadSelectedSnapshots);
+  if(deleteBtn) deleteBtn.addEventListener('click', deleteSelectedSnapshots); // NEW
 }
 
 /* ---------- Lock screen: blur-delay + inactivity auto-lock ---------- */

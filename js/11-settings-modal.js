@@ -311,6 +311,7 @@ function bindMobileShell(){
   mobileNavSelect.addEventListener('change', () => {
     const tab = mobileNavSelect.value;
     if(tab === state.tab) return;
+    syncCategoryAcrossTab(state.tab, tab); // NEW
     setTab(tab, { skipRender:true });
     switchViewsForTab();
     clearUrlParams();

@@ -19,6 +19,7 @@ const state = {
   sideCollapsed: loadSidebarCollapsed(),
   autoplayEnabled: loadAutoplaySetting(),
   categoryFavorites: loadCategoryFavorites(),
+  favoriteTimestamps: loadFavoriteTimestamps(),
   watchProgress: loadWatchProgress(),
   lockEnabled: loadLockEnabled(),
   lockPassword: loadLockPassword(),
