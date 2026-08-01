@@ -58,6 +58,15 @@ const NSFW_SCORE_THRESHOLD = 0.72;
 // after its first download, so later scans (and later app launches) load it
 // straight from disk instead of re-downloading it from the CDN.
 const NSFW_MODEL_CACHE_KEY = 'reelframe-nsfw-model-v1';
+// Self-hosted copy of nsfwjs's MobileNetV2 model.json + weight shard.
+// Deliberately NOT using nsfwjs.load() with no argument / a model name
+// string — that path lazy-loads weights via a dynamic import relative to
+// nsfwjs.min.js's own URL, and that path 404s when nsfwjs is loaded as a
+// plain <script> tag from a CDN (the browser bundle was never published
+// with that folder alongside it). Hosting the plain model.json ourselves
+// sidesteps that entirely and also means the service worker can cache it
+// for offline use, same as the rest of the app shell.
+const NSFW_MODEL_URL = 'models/nsfw-mobilenet-v2/model.json';
 
 /* ---------- Region ("spot") detection — second, optional pass ----------
    Unlike the classifier above (nsfwjs — whole-image only), this uses an

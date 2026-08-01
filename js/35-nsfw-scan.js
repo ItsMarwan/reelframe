@@ -83,27 +83,42 @@ function loadNsfwModel(){
       // Fast path: a copy already cached in this browser's IndexedDB from a
       // previous run. No network involved at all when this succeeds.
       //
-      // IMPORTANT: pass an actual tf.io.IOHandler here, not the string
-      // 'indexeddb://...'. nsfwjs.load() special-cases plain strings by
-      // treating them as a URL base and appending '/model.json' to them —
-      // fine for an http(s) folder, but it mangles the indexeddb scheme
-      // into something no registered IOHandler matches, so the load fails
-      // before any network request is even made. Passing the IOHandler
-      // object directly bypasses that string handling entirely.
+      // NOTE: tf.io.browserIndexedDB is NOT part of tfjs's public API in the
+      // version this app loads (verified against the actual 4.20.0 bundle —
+      // it exists internally but is never exposed on tf.io), so calling it
+      // throws "tf.io.browserIndexedDB is not a function" every single time
+      // and we always fell through to a redownload. The supported way to
+      // hit IndexedDB is to pass the plain 'indexeddb://...' URL string —
+      // nsfwjs 4.2.1's loader explicitly checks for and preserves that
+      // scheme (it only appends '/model.json' to strings that *aren't*
+      // indexeddb:// or localstorage:// and don't already end in
+      // model.json), and tf itself resolves that scheme via its own
+      // internally-registered IndexedDB router. No direct call to
+      // tf.io.browserIndexedDB is needed at all.
+      const NSFW_MODEL_INDEXEDDB_URL = `indexeddb://${NSFW_MODEL_CACHE_KEY}`;
       try{
-        nsfwModel = await nsfwjs.load(tf.io.browserIndexedDB(NSFW_MODEL_CACHE_KEY));
+        nsfwModel = await nsfwjs.load(NSFW_MODEL_INDEXEDDB_URL);
         return nsfwModel;
       }catch(e){
         // Nothing cached yet (first run ever, cache was cleared, etc.) —
         // fall through to a real download below.
-        console.info('NSFW model: no cached copy in IndexedDB yet, downloading from CDN.', e);
+        console.info('NSFW model: no cached copy in IndexedDB yet, downloading.', e);
       }
 
+      // NOTE: nsfwjs.load() with no argument is also broken when nsfwjs is
+      // loaded as a plain <script> tag from the CDN (dist/browser/nsfwjs.min.js).
+      // It lazy-loads its bundled weights via a *relative* dynamic import
+      // (import("./model_imports/mobilenet_v2.js")), but that folder was
+      // never published next to the browser bundle on npm/jsDelivr — only
+      // next to the esm/cjs builds — so the import 404s and nsfwjs rethrows
+      // it as "Could not load the model." Passing an explicit model.json URL
+      // sidesteps nsfwjs's broken by-name loader entirely and goes straight
+      // through tf's normal, working HTTP IOHandler.
       showNsfwProgress('Downloading NSFW detection model (first run only)…', 0, 0);
       try{
-        nsfwModel = await nsfwjs.load();
+        nsfwModel = await nsfwjs.load(NSFW_MODEL_URL);
       }catch(e){
-        console.error('NSFW model: CDN download failed.', e);
+        console.error('NSFW model: download failed.', e);
         throw e;
       } finally {
         hideNsfwProgress();
@@ -113,7 +128,7 @@ function loadNsfwModel(){
       // skip the download entirely. Best-effort: if IndexedDB isn't
       // available (private browsing, storage quota, etc.) the model still
       // works fine, it just won't be cached and will re-download next time.
-      try{ await nsfwModel.model.save(tf.io.browserIndexedDB(NSFW_MODEL_CACHE_KEY)); }
+      try{ await nsfwModel.model.save(NSFW_MODEL_INDEXEDDB_URL); }
       catch(e){ console.warn('NSFW model: could not cache to IndexedDB (non-fatal).', e); }
 
       return nsfwModel;

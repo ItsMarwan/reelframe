@@ -12,6 +12,8 @@ const SHELL_ASSETS = [
   './js/25-image-viewer-and-focus.js', './js/26-chapters.js', './js/27-watch-party.js',
   './js/28-keyboard-shortcuts.js', './js/29-view-tab.js', './js/30-pair-mode.js',
   './js/31-subtitles.js', './js/32-playlists.js', './js/33-audio-fx.js',
+  './js/35-nsfw-scan.js', './js/36-nsfw-regions.js',
+  './models/nsfw-mobilenet-v2/model.json', './models/nsfw-mobilenet-v2/group1-shard1of1',
 ];
 
 self.addEventListener('install', (event) => {
