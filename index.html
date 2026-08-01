@@ -1177,6 +1177,26 @@
       <div class="wallpaper-preview-card">
         <div class="wallpaper-preview-frame">
           <div id="wallpaperPreview" class="wallpaper-preview"></div>
+          <div id="wallpaperCropperOverlay" class="wallpaper-cropper-overlay" hidden>
+            <div id="wallpaperCropperViewport" class="wallpaper-cropper-viewport">
+              <img id="wallpaperCropperImg" class="wallpaper-cropper-img" draggable="false" alt="">
+            </div>
+            <div class="wallpaper-cropper-mask"></div>
+            <div class="wallpaper-cropper-frame"></div>
+          </div>
+        </div>
+        <div id="wallpaperCropperControls" class="wallpaper-control-row" hidden>
+          <div class="setting-text">
+            <div class="setting-title">Zoom</div>
+            <div class="setting-desc">Drag the image to reposition, scroll or use the slider to zoom.</div>
+          </div>
+          <div class="wallpaper-opacity-wrap">
+            <input id="wallpaperCropperZoom" class="wallpaper-opacity-range" type="range" min="0" max="100" step="1" value="0">
+          </div>
+        </div>
+        <div id="wallpaperCropperActions" class="setting-actions" hidden>
+          <button id="wallpaperCropperCancelBtn" class="btn-ghost small" type="button">Cancel</button>
+          <button id="wallpaperCropperConfirmBtn" class="btn-ghost small" type="button">Apply crop</button>
         </div>
       </div>
       <div class="wallpaper-control-row">

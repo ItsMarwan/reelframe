@@ -60,6 +60,283 @@ async function applyWallpaperFrameStyle(el, imageUrl, effect, scale, positionX, 
   el.style.filter = getWallpaperEffectFilter(effect);
 }
 
+/* ==========================================================================
+   Website Wallpaper — direct-manipulation cropper
+   Replaces the old blind Scale/Position X/Position Y sliders. The person
+   drags/zooms the source image under a fixed frame that represents the
+   current viewport's aspect ratio; "Apply crop" bakes exactly what's
+   visible inside that frame into a new image (real pixels, not a
+   transform), which becomes state.websiteWallpaper.image.
+   ========================================================================== */
+let wallpaperCropDraft = null;   // { sourceImage, naturalW, naturalH, frameW, frameH, scale, minScale, maxScale, offsetX, offsetY }
+let wallpaperCropPointers = null; // { pointers: Map<id,{x,y}>, mode: 'pan'|'pinch', ... }
+
+function wallpaperCropperEls(){
+  return {
+    overlay: document.getElementById('wallpaperCropperOverlay'),
+    viewport: document.getElementById('wallpaperCropperViewport'),
+    img: document.getElementById('wallpaperCropperImg'),
+    frame: document.getElementById('wallpaperCropperFrame'),
+    controls: document.getElementById('wallpaperCropperControls'),
+    zoom: document.getElementById('wallpaperCropperZoom'),
+    actions: document.getElementById('wallpaperCropperActions'),
+    normalControls: document.getElementById('wallpaperNormalControls'),
+    editCropBtn: document.getElementById('wallpaperEditCropBtn'),
+  };
+}
+
+function getWallpaperViewportAspect(){
+  const w = window.innerWidth || 16;
+  const h = window.innerHeight || 9;
+  return w / h;
+}
+
+/* Sizes/positions the cropper viewport + frame box to fill the preview
+   card while matching the current window's aspect ratio (the frame
+   represents "how big the viewport is"). Returns the box rect in
+   preview-card-local coordinates, or null if the DOM isn't ready. */
+function layoutWallpaperCropperFrame(){
+  const { viewport, frame } = wallpaperCropperEls();
+  const container = document.querySelector('.wallpaper-preview-frame');
+  if(!container || !viewport || !frame) return null;
+
+  const containerW = container.clientWidth || 1;
+  const containerH = container.clientHeight || 1;
+  const aspect = getWallpaperViewportAspect();
+
+  let boxW = containerW;
+  let boxH = boxW / aspect;
+  if(boxH > containerH){
+    boxH = containerH;
+    boxW = boxH * aspect;
+  }
+  const left = Math.round((containerW - boxW) / 2);
+  const top = Math.round((containerH - boxH) / 2);
+  boxW = Math.round(boxW);
+  boxH = Math.round(boxH);
+
+  [viewport, frame].forEach((el) => {
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    el.style.width = `${boxW}px`;
+    el.style.height = `${boxH}px`;
+  });
+
+  return { width: boxW, height: boxH, left, top };
+}
+
+function clampWallpaperCropOffsets(draft){
+  const minX = draft.frameW - draft.naturalW * draft.scale;
+  const minY = draft.frameH - draft.naturalH * draft.scale;
+  draft.offsetX = Math.min(0, Math.max(minX, draft.offsetX));
+  draft.offsetY = Math.min(0, Math.max(minY, draft.offsetY));
+}
+
+function renderWallpaperCropTransform(){
+  if(!wallpaperCropDraft) return;
+  clampWallpaperCropOffsets(wallpaperCropDraft);
+  const { img, zoom } = wallpaperCropperEls();
+  const draft = wallpaperCropDraft;
+  if(img){
+    img.style.width = `${draft.naturalW * draft.scale}px`;
+    img.style.height = `${draft.naturalH * draft.scale}px`;
+    img.style.left = `${draft.offsetX}px`;
+    img.style.top = `${draft.offsetY}px`;
+  }
+  if(zoom){
+    const span = draft.maxScale - draft.minScale;
+    const pct = span > 0 ? ((draft.scale - draft.minScale) / span) * 100 : 0;
+    zoom.value = String(Math.round(Math.max(0, Math.min(100, pct))));
+  }
+}
+
+/* Zooms while keeping the image point under (anchorX, anchorY) — in
+   frame-local coordinates — visually stationary, like pinch/scroll zoom
+   in a photo app. */
+function setWallpaperCropZoom(newScale, anchorX, anchorY){
+  if(!wallpaperCropDraft) return;
+  const draft = wallpaperCropDraft;
+  const clamped = Math.min(draft.maxScale, Math.max(draft.minScale, newScale));
+  if(clamped === draft.scale) return;
+  const ratio = clamped / draft.scale;
+  draft.offsetX = anchorX - (anchorX - draft.offsetX) * ratio;
+  draft.offsetY = anchorY - (anchorY - draft.offsetY) * ratio;
+  draft.scale = clamped;
+  renderWallpaperCropTransform();
+}
+
+function openWallpaperCropper(imageSrc){
+  const { overlay, img, controls, actions, normalControls } = wallpaperCropperEls();
+  if(!overlay || !img){
+    toast('Wallpaper cropper UI is missing from this page.');
+    return;
+  }
+  const probe = new Image();
+  probe.onload = () => {
+    const rect = layoutWallpaperCropperFrame();
+    if(!rect) return;
+    const naturalW = probe.naturalWidth || probe.width || 1;
+    const naturalH = probe.naturalHeight || probe.height || 1;
+    const minScale = Math.max(rect.width / naturalW, rect.height / naturalH);
+    const scale = minScale;
+    wallpaperCropDraft = {
+      sourceImage: probe,
+      naturalW, naturalH,
+      frameW: rect.width, frameH: rect.height,
+      scale, minScale, maxScale: minScale * 4,
+      offsetX: (rect.width - naturalW * scale) / 2,
+      offsetY: (rect.height - naturalH * scale) / 2,
+    };
+    img.src = imageSrc;
+    renderWallpaperCropTransform();
+    overlay.hidden = false;
+    if(controls) controls.hidden = false;
+    if(actions) actions.hidden = false;
+    if(normalControls) normalControls.hidden = true;
+  };
+  probe.onerror = () => toast('Could not load that image');
+  probe.src = imageSrc;
+}
+
+function closeWallpaperCropper(){
+  const { overlay, controls, actions, normalControls } = wallpaperCropperEls();
+  if(overlay) overlay.hidden = true;
+  if(controls) controls.hidden = true;
+  if(actions) actions.hidden = true;
+  if(normalControls) normalControls.hidden = false;
+  wallpaperCropDraft = null;
+  wallpaperCropPointers = null;
+}
+
+/* Reads exactly the region of the source image currently visible inside
+   the frame and draws it 1:1 into an output canvas — the crop is baked
+   into real pixels, not stored as a transform. */
+function bakeWallpaperCrop(){
+  const draft = wallpaperCropDraft;
+  if(!draft) return null;
+  const sx = -draft.offsetX / draft.scale;
+  const sy = -draft.offsetY / draft.scale;
+  const sw = draft.frameW / draft.scale;
+  const sh = draft.frameH / draft.scale;
+
+  const targetW = Math.min(1920, Math.max(320, Math.round(sw)));
+  const targetH = Math.max(1, Math.round(targetW * (draft.frameH / draft.frameW)));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(draft.sourceImage, sx, sy, sw, sh, 0, 0, targetW, targetH);
+  return canvas.toDataURL('image/jpeg', 0.92);
+}
+
+function bindWallpaperCropperInteractions(){
+  const { viewport } = wallpaperCropperEls();
+  if(!viewport || viewport.dataset.cropperBound) return;
+  viewport.dataset.cropperBound = '1';
+
+  const pointerPos = (e) => {
+    const rect = viewport.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  viewport.addEventListener('pointerdown', (e) => {
+    if(!wallpaperCropDraft) return;
+    viewport.setPointerCapture(e.pointerId);
+    if(!wallpaperCropPointers) wallpaperCropPointers = { pointers: new Map() };
+    wallpaperCropPointers.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if(wallpaperCropPointers.pointers.size === 1){
+      wallpaperCropPointers.mode = 'pan';
+      wallpaperCropPointers.startOffsetX = wallpaperCropDraft.offsetX;
+      wallpaperCropPointers.startOffsetY = wallpaperCropDraft.offsetY;
+      wallpaperCropPointers.startClientX = e.clientX;
+      wallpaperCropPointers.startClientY = e.clientY;
+      viewport.classList.add('dragging');
+    } else if(wallpaperCropPointers.pointers.size === 2){
+      wallpaperCropPointers.mode = 'pinch';
+      const pts = [...wallpaperCropPointers.pointers.values()];
+      wallpaperCropPointers.startDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+      wallpaperCropPointers.startScale = wallpaperCropDraft.scale;
+    }
+  });
+
+  viewport.addEventListener('pointermove', (e) => {
+    if(!wallpaperCropDraft || !wallpaperCropPointers || !wallpaperCropPointers.pointers.has(e.pointerId)) return;
+    wallpaperCropPointers.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if(wallpaperCropPointers.mode === 'pan' && wallpaperCropPointers.pointers.size === 1){
+      const dx = e.clientX - wallpaperCropPointers.startClientX;
+      const dy = e.clientY - wallpaperCropPointers.startClientY;
+      wallpaperCropDraft.offsetX = wallpaperCropPointers.startOffsetX + dx;
+      wallpaperCropDraft.offsetY = wallpaperCropPointers.startOffsetY + dy;
+      renderWallpaperCropTransform();
+    } else if(wallpaperCropPointers.mode === 'pinch' && wallpaperCropPointers.pointers.size === 2){
+      const pts = [...wallpaperCropPointers.pointers.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+      const mid = pointerPos({ clientX: (pts[0].x + pts[1].x) / 2, clientY: (pts[0].y + pts[1].y) / 2 });
+      const newScale = wallpaperCropPointers.startScale * (dist / wallpaperCropPointers.startDist);
+      setWallpaperCropZoom(newScale, mid.x, mid.y);
+    }
+  });
+
+  const endPointer = (e) => {
+    if(!wallpaperCropPointers) return;
+    wallpaperCropPointers.pointers.delete(e.pointerId);
+    if(wallpaperCropPointers.pointers.size === 0){
+      wallpaperCropPointers = null;
+      viewport.classList.remove('dragging');
+    } else if(wallpaperCropPointers.pointers.size === 1 && wallpaperCropDraft){
+      const [[, remaining]] = [...wallpaperCropPointers.pointers.entries()];
+      wallpaperCropPointers.mode = 'pan';
+      wallpaperCropPointers.startOffsetX = wallpaperCropDraft.offsetX;
+      wallpaperCropPointers.startOffsetY = wallpaperCropDraft.offsetY;
+      wallpaperCropPointers.startClientX = remaining.x;
+      wallpaperCropPointers.startClientY = remaining.y;
+    }
+  };
+  viewport.addEventListener('pointerup', endPointer);
+  viewport.addEventListener('pointercancel', endPointer);
+  viewport.addEventListener('pointerleave', (e) => { if(e.buttons === 0) endPointer(e); });
+
+  viewport.addEventListener('wheel', (e) => {
+    if(!wallpaperCropDraft) return;
+    e.preventDefault();
+    const pos = pointerPos(e);
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    setWallpaperCropZoom(wallpaperCropDraft.scale * factor, pos.x, pos.y);
+  }, { passive: false });
+
+  const zoomSlider = document.getElementById('wallpaperCropperZoom');
+  if(zoomSlider){
+    zoomSlider.addEventListener('input', () => {
+      if(!wallpaperCropDraft) return;
+      const draft = wallpaperCropDraft;
+      const pct = Number(zoomSlider.value) / 100;
+      const newScale = draft.minScale + pct * (draft.maxScale - draft.minScale);
+      setWallpaperCropZoom(newScale, draft.frameW / 2, draft.frameH / 2);
+    });
+  }
+
+  window.addEventListener('resize', () => {
+    if(!wallpaperCropDraft) return;
+    const rect = layoutWallpaperCropperFrame();
+    if(!rect) return;
+    const draft = wallpaperCropDraft;
+    const newMinScale = Math.max(rect.width / draft.naturalW, rect.height / draft.naturalH);
+    // Preserve how far zoomed-in the person was, relative to "fit", across the resize.
+    const zoomRatio = draft.scale / draft.minScale;
+    draft.frameW = rect.width;
+    draft.frameH = rect.height;
+    draft.minScale = newMinScale;
+    draft.maxScale = newMinScale * 4;
+    draft.scale = Math.min(draft.maxScale, Math.max(draft.minScale, newMinScale * zoomRatio));
+    renderWallpaperCropTransform();
+  });
+}
+
 async function renderWebsiteWallpaper(){
   const wallpaperEl = document.getElementById('websiteWallpaper');
   const previewEl = document.getElementById('wallpaperPreview');
@@ -150,39 +427,16 @@ function populateWebsiteWallpaperSourceSelect(){
   grid.querySelectorAll('.wallpaper-source-card').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const sourceKey = btn.dataset.wallpaperKey;
-      const preview = btn.dataset.wallpaperPreview;
-      btn.classList.add('active');
       grid.querySelectorAll('.wallpaper-source-card').forEach((other) => other.classList.toggle('active', other === btn));
-      if(preview){
-        const previewEl = document.getElementById('wallpaperPreview');
-        const effectSelect = document.getElementById('websiteWallpaperEffectSelect');
-        const opacityInput = document.getElementById('websiteWallpaperOpacity');
-        const componentSelect = document.getElementById('websiteWallpaperComponentSelect');
-        const wallpaperScale = document.getElementById('websiteWallpaperScale');
-        const wallpaperPositionX = document.getElementById('websiteWallpaperPositionX');
-        const wallpaperPositionY = document.getElementById('websiteWallpaperPositionY');
-        if(previewEl) previewEl.style.backgroundImage = `url(${preview})`;
-        if(previewEl) previewEl.style.filter = getWallpaperEffectFilter(effectSelect ? effectSelect.value : 'clear');
-        state.websiteWallpaper = {
-          image: preview,
-          effect: effectSelect ? effectSelect.value : 'clear',
-          componentEffect: componentSelect ? componentSelect.value : 'opaque',
-          opacity: opacityInput ? Number(opacityInput.value) : 100,
-          scale: wallpaperScale ? Number(wallpaperScale.value) : 100,
-          positionX: wallpaperPositionX ? Number(wallpaperPositionX.value) : 50,
-          positionY: wallpaperPositionY ? Number(wallpaperPositionY.value) : 50,
-        };
-        saveWebsiteWallpaper();
-        renderWebsiteWallpaper();
-      }
-      await applyWallpaperFromSource(sourceKey);
+      await openWallpaperCropperFromSource(sourceKey);
     });
   });
 }
 
-async function applyWallpaperFromSource(sourceKey){
-  const previewEl = document.getElementById('wallpaperPreview');
-  if(!previewEl) return;
+/* Resolves a library item (by the key stashed on its grid card) to a
+   full-resolution data URL and opens the cropper on it. Nothing is
+   written to state.websiteWallpaper until the person confirms the crop. */
+async function openWallpaperCropperFromSource(sourceKey){
   const source = [...(state.rawImages || []), ...(state.snapshots || [])].find((item) => {
     const key = item.path || item.id || item.name || item.videoPath || item.videoName;
     return key === sourceKey;
@@ -191,25 +445,7 @@ async function applyWallpaperFromSource(sourceKey){
   const blob = source.file || source.blob;
   if(!blob) return;
   const dataURL = await blobToDataURL(blob);
-  previewEl.style.backgroundImage = `url(${dataURL})`;
-  const effectSelect = document.getElementById('websiteWallpaperEffectSelect');
-  const opacityInput = document.getElementById('websiteWallpaperOpacity');
-  const componentSelect = document.getElementById('websiteWallpaperComponentSelect');
-  const wallpaperScale = document.getElementById('websiteWallpaperScale');
-  const wallpaperPositionX = document.getElementById('websiteWallpaperPositionX');
-  const wallpaperPositionY = document.getElementById('websiteWallpaperPositionY');
-  state.websiteWallpaper = {
-    image: dataURL,
-    effect: effectSelect ? effectSelect.value : 'clear',
-    componentEffect: componentSelect ? componentSelect.value : 'opaque',
-    opacity: opacityInput ? Number(opacityInput.value) : 100,
-    scale: wallpaperScale ? Number(wallpaperScale.value) : 100,
-    positionX: wallpaperPositionX ? Number(wallpaperPositionX.value) : 50,
-    positionY: wallpaperPositionY ? Number(wallpaperPositionY.value) : 50,
-  };
-  saveWebsiteWallpaper();
-  renderWebsiteWallpaper();
-  toast('Wallpaper preview updated');
+  openWallpaperCropper(dataURL);
 }
 
 async function exportLibraryData(){
@@ -596,15 +832,12 @@ function bindSettingsModal(){
   const websiteWallpaperComponentSelect = document.getElementById('websiteWallpaperComponentSelect');
   const websiteWallpaperOpacity = document.getElementById('websiteWallpaperOpacity');
   const websiteWallpaperOpacityText = document.getElementById('websiteWallpaperOpacityText');
-  const websiteWallpaperScale = document.getElementById('websiteWallpaperScale');
-  const websiteWallpaperScaleText = document.getElementById('websiteWallpaperScaleText');
-  const websiteWallpaperPositionX = document.getElementById('websiteWallpaperPositionX');
-  const websiteWallpaperPositionXText = document.getElementById('websiteWallpaperPositionXText');
-  const websiteWallpaperPositionY = document.getElementById('websiteWallpaperPositionY');
-  const websiteWallpaperPositionYText = document.getElementById('websiteWallpaperPositionYText');
   const websiteWallpaperApplyBtn = document.getElementById('websiteWallpaperApplyBtn');
   const websiteWallpaperClearBtn = document.getElementById('websiteWallpaperClearBtn');
   const websiteWallpaperClearBtnTop = document.getElementById('websiteWallpaperClearBtnTop');
+  const wallpaperEditCropBtn = document.getElementById('wallpaperEditCropBtn');
+  const wallpaperCropperCancelBtn = document.getElementById('wallpaperCropperCancelBtn');
+  const wallpaperCropperConfirmBtn = document.getElementById('wallpaperCropperConfirmBtn');
   const findDuplicatesBtn = document.getElementById('findDuplicatesBtn');
   const duplicateBackdrop = document.getElementById('duplicatesModalBackdrop');
   const duplicateClose = document.getElementById('duplicatesModalClose');
@@ -680,8 +913,15 @@ function bindSettingsModal(){
       toast(`Focus blur method set to ${nsfwBlurMethodSelect.options[nsfwBlurMethodSelect.selectedIndex].text}`);
     });
   }
+  bindWallpaperCropperInteractions();
+
+  function refreshWallpaperEditCropBtn(){
+    if(wallpaperEditCropBtn) wallpaperEditCropBtn.hidden = !(state.websiteWallpaper && state.websiteWallpaper.image);
+  }
+
   if(openWebsiteWallpaperBtn && wallpaperModalBackdrop){
     openWebsiteWallpaperBtn.addEventListener('click', () => {
+      closeWallpaperCropper(); // ensure a fresh, non-cropping state every time the modal opens
       populateWebsiteWallpaperSourceSelect();
       const previewEl = document.getElementById('wallpaperPreview');
       if(previewEl) previewEl.style.backgroundImage = state.websiteWallpaper && state.websiteWallpaper.image ? `url(${state.websiteWallpaper.image})` : 'none';
@@ -689,21 +929,18 @@ function bindSettingsModal(){
       if(websiteWallpaperComponentSelect && state.websiteWallpaper) websiteWallpaperComponentSelect.value = state.websiteWallpaper.componentEffect || 'opaque';
       if(websiteWallpaperOpacity && state.websiteWallpaper) websiteWallpaperOpacity.value = String(state.websiteWallpaper.opacity || 100);
       if(websiteWallpaperOpacityText) websiteWallpaperOpacityText.textContent = `${websiteWallpaperOpacity.value}%`;
-      if(websiteWallpaperScale && state.websiteWallpaper) websiteWallpaperScale.value = String(state.websiteWallpaper.scale || 100);
-      if(websiteWallpaperScaleText) websiteWallpaperScaleText.textContent = `${websiteWallpaperScale.value}%`;
-      if(websiteWallpaperPositionX && state.websiteWallpaper) websiteWallpaperPositionX.value = String(state.websiteWallpaper.positionX || 50);
-      if(websiteWallpaperPositionXText) websiteWallpaperPositionXText.textContent = `${websiteWallpaperPositionX.value}%`;
-      if(websiteWallpaperPositionY && state.websiteWallpaper) websiteWallpaperPositionY.value = String(state.websiteWallpaper.positionY || 50);
-      if(websiteWallpaperPositionYText) websiteWallpaperPositionYText.textContent = `${websiteWallpaperPositionY.value}%`;
+      refreshWallpaperEditCropBtn();
       renderWebsiteWallpaper();
       wallpaperModalBackdrop.hidden = false;
     });
   }
   if(wallpaperModalClose && wallpaperModalBackdrop){
-    wallpaperModalClose.addEventListener('click', () => { wallpaperModalBackdrop.hidden = true; });
+    wallpaperModalClose.addEventListener('click', () => { closeWallpaperCropper(); wallpaperModalBackdrop.hidden = true; });
   }
   if(wallpaperModalBackdrop){
-    wallpaperModalBackdrop.addEventListener('click', (e) => { if(e.target === wallpaperModalBackdrop) wallpaperModalBackdrop.hidden = true; });
+    wallpaperModalBackdrop.addEventListener('click', (e) => {
+      if(e.target === wallpaperModalBackdrop){ closeWallpaperCropper(); wallpaperModalBackdrop.hidden = true; }
+    });
   }
   if(websiteWallpaperOpacity){
     websiteWallpaperOpacity.addEventListener('input', () => {
@@ -712,31 +949,35 @@ function bindSettingsModal(){
       if(previewEl) previewEl.style.opacity = String(Math.max(0, Math.min(1, Number(websiteWallpaperOpacity.value) / 100)));
     });
   }
-  if(websiteWallpaperScale){
-    websiteWallpaperScale.addEventListener('input', () => {
-      if(websiteWallpaperScaleText) websiteWallpaperScaleText.textContent = `${websiteWallpaperScale.value}%`;
-      if(state.websiteWallpaper){
-        state.websiteWallpaper.scale = Number(websiteWallpaperScale.value);
-      }
-      renderWebsiteWallpaper();
+  if(wallpaperCropperCancelBtn){
+    wallpaperCropperCancelBtn.addEventListener('click', () => {
+      closeWallpaperCropper();
+      renderWebsiteWallpaper(); // restore the preview to whatever's currently applied
     });
   }
-  if(websiteWallpaperPositionX){
-    websiteWallpaperPositionX.addEventListener('input', () => {
-      if(websiteWallpaperPositionXText) websiteWallpaperPositionXText.textContent = `${websiteWallpaperPositionX.value}%`;
-      if(state.websiteWallpaper){
-        state.websiteWallpaper.positionX = Number(websiteWallpaperPositionX.value);
-      }
+  if(wallpaperCropperConfirmBtn){
+    wallpaperCropperConfirmBtn.addEventListener('click', () => {
+      const baked = bakeWallpaperCrop();
+      if(!baked){ toast('Nothing to crop yet'); return; }
+      state.websiteWallpaper = {
+        image: baked,
+        effect: websiteWallpaperEffectSelect ? websiteWallpaperEffectSelect.value : 'clear',
+        componentEffect: websiteWallpaperComponentSelect ? websiteWallpaperComponentSelect.value : 'opaque',
+        opacity: websiteWallpaperOpacity ? Number(websiteWallpaperOpacity.value) : 100,
+        scale: 100,
+        positionX: 50,
+        positionY: 50,
+      };
+      saveWebsiteWallpaper();
+      closeWallpaperCropper();
       renderWebsiteWallpaper();
+      refreshWallpaperEditCropBtn();
+      toast('Crop applied');
     });
   }
-  if(websiteWallpaperPositionY){
-    websiteWallpaperPositionY.addEventListener('input', () => {
-      if(websiteWallpaperPositionYText) websiteWallpaperPositionYText.textContent = `${websiteWallpaperPositionY.value}%`;
-      if(state.websiteWallpaper){
-        state.websiteWallpaper.positionY = Number(websiteWallpaperPositionY.value);
-      }
-      renderWebsiteWallpaper();
+  if(wallpaperEditCropBtn){
+    wallpaperEditCropBtn.addEventListener('click', () => {
+      if(state.websiteWallpaper && state.websiteWallpaper.image) openWallpaperCropper(state.websiteWallpaper.image);
     });
   }
   if(websiteWallpaperCategorySelect){
@@ -768,33 +1009,27 @@ function bindSettingsModal(){
       const file = websiteWallpaperUpload.files && websiteWallpaperUpload.files[0];
       if(!file) return;
       const dataURL = await blobToDataURL(file);
-      state.websiteWallpaper = {
-        image: dataURL,
-        effect: websiteWallpaperEffectSelect ? websiteWallpaperEffectSelect.value : 'clear',
-        componentEffect: websiteWallpaperComponentSelect ? websiteWallpaperComponentSelect.value : 'opaque',
-        opacity: websiteWallpaperOpacity ? Number(websiteWallpaperOpacity.value) : 100,
-        scale: websiteWallpaperScale ? Number(websiteWallpaperScale.value) : 100,
-        positionX: websiteWallpaperPositionX ? Number(websiteWallpaperPositionX.value) : 50,
-        positionY: websiteWallpaperPositionY ? Number(websiteWallpaperPositionY.value) : 50,
-      };
-      saveWebsiteWallpaper();
-      renderWebsiteWallpaper();
-      toast('Wallpaper uploaded and ready to apply');
+      openWallpaperCropper(dataURL);
       websiteWallpaperUpload.value = '';
     });
   }
   if(websiteWallpaperApplyBtn){
+    // With the cropper handling image + framing, this button now just
+    // saves effect/component/opacity changes against whatever image is
+    // already applied, and closes the modal.
     websiteWallpaperApplyBtn.addEventListener('click', () => {
+      if(!state.websiteWallpaper || !state.websiteWallpaper.image){
+        toast('Upload or pick an image first');
+        return;
+      }
       state.websiteWallpaper = {
-        image: state.websiteWallpaper && state.websiteWallpaper.image ? state.websiteWallpaper.image : '',
+        ...state.websiteWallpaper,
         effect: websiteWallpaperEffectSelect ? websiteWallpaperEffectSelect.value : 'clear',
         componentEffect: websiteWallpaperComponentSelect ? websiteWallpaperComponentSelect.value : 'opaque',
         opacity: websiteWallpaperOpacity ? Number(websiteWallpaperOpacity.value) : 100,
-        scale: websiteWallpaperScale ? Number(websiteWallpaperScale.value) : 100,
-        positionX: websiteWallpaperPositionX ? Number(websiteWallpaperPositionX.value) : 50,
-        positionY: websiteWallpaperPositionY ? Number(websiteWallpaperPositionY.value) : 50,
       };
       saveWebsiteWallpaper();
+      closeWallpaperCropper();
       renderWebsiteWallpaper();
       toast('Website background applied');
       if(wallpaperModalBackdrop) wallpaperModalBackdrop.hidden = true;
@@ -804,7 +1039,9 @@ function bindSettingsModal(){
     const clearWallpaper = () => {
       state.websiteWallpaper = null;
       saveWebsiteWallpaper();
+      closeWallpaperCropper();
       renderWebsiteWallpaper();
+      refreshWallpaperEditCropBtn();
       toast('Website background cleared');
     };
     if(websiteWallpaperClearBtn) websiteWallpaperClearBtn.addEventListener('click', clearWallpaper);

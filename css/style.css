@@ -1963,6 +1963,59 @@ img, video{
 .wallpaper-adjustment-row .setting-desc{ max-width:none; }
 .wallpaper-adjustment-row .setting-text{ flex:1 1 auto; min-width:0; }
 .wallpaper-control-row label.btn-ghost.small{ display:inline-flex; align-items:center; justify-content:center; }
+/* ==========================================================================
+   Website Wallpaper — direct-manipulation cropper additions
+   Append this block to css/style.css (it only adds new rules and makes
+   .wallpaper-preview-frame a positioning context; nothing existing is
+   removed since the old scale/position slider rows are gone from the
+   markup, not just hidden).
+   ========================================================================== */
+
+.wallpaper-preview-frame{
+  position: relative; /* anchors the cropper overlay */
+}
+
+.wallpaper-cropper-overlay{
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  z-index: 2;
+}
+
+.wallpaper-cropper-viewport{
+  position: absolute;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none; /* let our own pointer handlers own drag/pinch */
+  background: var(--surface-2);
+  border-radius: 4px;
+}
+.wallpaper-cropper-viewport.dragging{ cursor: grabbing; }
+
+.wallpaper-cropper-img{
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  max-height: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none; /* the viewport, not the img, handles drag */
+}
+
+.wallpaper-cropper-frame{
+  position: absolute;
+  pointer-events: none;
+  border-radius: 4px;
+  border: 2px solid var(--amber);
+  box-shadow: 0 0 0 9999px rgba(8, 8, 10, .68); /* dims everything outside the frame */
+}
+
+.wallpaper-cropper-controls{ }
+.wallpaper-cropper-actions{ justify-content: flex-end; }
+
+.wallpaper-normal-controls[hidden]{ display: none; }
 .import-choice-btn{
   display:flex; flex-direction:column; align-items:flex-start; gap:5px;
   width:100%; text-align:left;
