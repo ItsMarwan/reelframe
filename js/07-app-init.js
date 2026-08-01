@@ -19,13 +19,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 
 function showLockGate(){
-  const lockBackdrop = document.getElementById('lockGate');
+  enterLockedState();
   const lockInput = document.getElementById('lockPasswordEntry');
   const lockError = document.getElementById('lockError');
   if(lockInput) lockInput.value = '';
   if(lockError) lockError.hidden = true;
-  appEl.hidden = true;
-  if(lockBackdrop) lockBackdrop.hidden = false;
 }
 
 async function initAppUI(){

@@ -326,23 +326,28 @@ function bindBulkDownloadButton(){
   if(deleteBtn) deleteBtn.addEventListener('click', deleteSelectedSnapshots); // NEW
 }
 
-/* ---------- Lock screen: blur-delay + inactivity auto-lock ---------- */
+/* ---------- Lock screen: blur-delay + inactivity auto-lock + tamper guard ---------- */
 let blurLockTimer = null;
 let inactivityLockTimer = null;
+let isLockedNow = false;
+let lockEnforcerObserver = null;
+let lockEnforcerInterval = null;
 
-function scheduleInactivityLockReset(){
-  if(inactivityLockTimer){ clearTimeout(inactivityLockTimer); inactivityLockTimer = null; }
-  if(!(state.lockEnabled && state.lockPassword && state.lockTimeoutMinutes > 0)) return;
-  inactivityLockTimer = setTimeout(() => {
-    if(typeof lockScreenNow === 'function') lockScreenNow();
-  }, state.lockTimeoutMinutes * 60000);
+async function sha256Hex(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str || ''));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+/* Old installs stored the raw password; a hash is always 64 hex chars, so
+   anything else is a legacy plaintext value — rehash it once and move on. */
+async function normalizeStoredLockPassword(){
+  const val = state.lockPassword;
+  if(val && !/^[0-9a-f]{64}$/i.test(val)){
+    state.lockPassword = await sha256Hex(val);
+    saveLockPassword();
+  }
 }
 
-let lockScreenNow = null; // assigned inside bindLockBehavior, used by the inactivity timer above
-
-function bindLockBehavior(){
-  if(lockBound) return;
-  lockBound = true;
+function wireLockGateEvents(){
   const lockBackdrop = document.getElementById('lockGate');
   const lockForm = document.getElementById('lockForm');
   const lockInput = document.getElementById('lockPasswordEntry');
@@ -350,26 +355,11 @@ function bindLockBehavior(){
   const lockError = document.getElementById('lockError');
   if(!lockBackdrop || !lockInput || !unlockBtn) return;
 
-  lockScreenNow = function lockNow(){
-    if(state.lockEnabled && state.lockPassword && document.getElementById('lockGate').hidden){
-      const video = document.getElementById('videoPlayer');
-      if(video && !video.paused) video.pause();
-      const musicAudio = document.getElementById('musicAudioEl');
-      if(musicAudio && !musicAudio.paused) musicAudio.pause();
-      if(typeof clearNextUpPrompt === 'function') clearNextUpPrompt({ dismissed: true });
-      document.getElementById('app').hidden = true;
-      lockBackdrop.hidden = false;
-      lockInput.value = '';
-      if(lockError) lockError.hidden = true;
-    }
-    if(inactivityLockTimer){ clearTimeout(inactivityLockTimer); inactivityLockTimer = null; }
-  };
-
-  const unlock = () => {
+  const unlock = async () => {
     if(lockBackdrop.hidden) return;
-    if(lockInput.value === state.lockPassword){
-      lockBackdrop.hidden = true;
-      document.getElementById('app').hidden = false;
+    const attemptHash = await sha256Hex(lockInput.value);
+    if(attemptHash === state.lockPassword){
+      exitLockedState();
       lockInput.value = '';
       if(lockError) lockError.hidden = true;
       toast('Unlocked');
@@ -387,9 +377,88 @@ function bindLockBehavior(){
     unlockBtn.addEventListener('click', unlock);
     lockInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') unlock(); });
   }
+}
 
-  // Losing window focus (alt-tab, switched app) gets a configurable grace
-  // period instead of an instant lock — quick alt-tabs shouldn't boot you out.
+/* Rebuilds #lockGate from the pristine template captured at page load if
+   it's ever missing from the DOM (deleted via devtools, etc.), and
+   re-wires its form. Safe to call repeatedly — no-ops if it already exists. */
+function ensureLockGateExists(){
+  let gate = document.getElementById('lockGate');
+  if(gate) return gate;
+  if(!LOCK_GATE_TEMPLATE) return null;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = LOCK_GATE_TEMPLATE;
+  gate = wrap.firstElementChild;
+  document.body.appendChild(gate);
+  wireLockGateEvents();
+  return gate;
+}
+
+function enterLockedState(){
+  isLockedNow = true;
+  const video = document.getElementById('videoPlayer');
+  if(video && !video.paused) video.pause();
+  const musicAudio = document.getElementById('musicAudioEl');
+  if(musicAudio && !musicAudio.paused) musicAudio.pause();
+  if(typeof clearNextUpPrompt === 'function') clearNextUpPrompt({ dismissed: true });
+  enforceLockState();
+  if(inactivityLockTimer){ clearTimeout(inactivityLockTimer); inactivityLockTimer = null; }
+}
+function exitLockedState(){
+  isLockedNow = false;
+  const appEl = document.getElementById('app');
+  const gate = document.getElementById('lockGate');
+  if(appEl) appEl.hidden = false;
+  if(gate) gate.hidden = true;
+}
+
+/* The tamper guard: whenever isLockedNow is true, this repeatedly forces
+   #app hidden and #lockGate visible, rebuilding the gate if it's gone.
+   Called from a MutationObserver (instant) and a backup interval (belt
+   and suspenders in case a mutation slips through). */
+function enforceLockState(){
+  if(!isLockedNow) return;
+  const gate = ensureLockGateExists();
+  const appEl = document.getElementById('app');
+  if(gate){
+    if(gate.hidden) gate.hidden = false;
+    gate.style.removeProperty('display');
+  }
+  if(appEl && !appEl.hidden) appEl.hidden = true;
+}
+function startLockEnforcer(){
+  if(lockEnforcerObserver) return;
+  lockEnforcerObserver = new MutationObserver(() => { if(isLockedNow) enforceLockState(); });
+  lockEnforcerObserver.observe(document.body, {
+    attributes: true, attributeFilter: ['hidden', 'style', 'class'],
+    childList: true, subtree: true,
+  });
+  lockEnforcerInterval = setInterval(() => { if(isLockedNow) enforceLockState(); }, 1200);
+}
+
+function scheduleInactivityLockReset(){
+  if(inactivityLockTimer){ clearTimeout(inactivityLockTimer); inactivityLockTimer = null; }
+  if(!(state.lockEnabled && state.lockPassword && state.lockTimeoutMinutes > 0)) return;
+  inactivityLockTimer = setTimeout(() => {
+    if(typeof lockScreenNow === 'function') lockScreenNow();
+  }, state.lockTimeoutMinutes * 60000);
+}
+
+let lockScreenNow = null;
+
+function bindLockBehavior(){
+  if(lockBound) return;
+  lockBound = true;
+  startLockEnforcer();
+  normalizeStoredLockPassword();
+  wireLockGateEvents();
+
+  lockScreenNow = function lockNow(){
+    if(state.lockEnabled && state.lockPassword && !isLockedNow){
+      enterLockedState();
+    }
+  };
+
   window.addEventListener('blur', () => {
     if(!(state.lockEnabled && state.lockPassword)) return;
     if(blurLockTimer) clearTimeout(blurLockTimer);
@@ -400,24 +469,16 @@ function bindLockBehavior(){
   window.addEventListener('focus', () => {
     if(blurLockTimer){ clearTimeout(blurLockTimer); blurLockTimer = null; }
   });
-
-  // A genuinely hidden tab (switched tabs, minimized, screen off) locks
-  // immediately regardless of the blur-delay setting.
   document.addEventListener('visibilitychange', () => {
     if(document.visibilityState === 'hidden'){
       if(blurLockTimer){ clearTimeout(blurLockTimer); blurLockTimer = null; }
       lockScreenNow();
     }
   });
-
-  // Any real interaction resets the inactivity clock.
   ['mousemove','mousedown','keydown','touchstart','wheel'].forEach(evt => {
-    window.addEventListener(evt, () => { if(lockBackdrop.hidden) scheduleInactivityLockReset(); }, { passive: true });
+    window.addEventListener(evt, () => { if(!isLockedNow) scheduleInactivityLockReset(); }, { passive: true });
   });
 
-  if(state.lockEnabled && state.lockPassword){
-    lockScreenNow();
-  } else {
-    scheduleInactivityLockReset();
-  }
+  if(state.lockEnabled && state.lockPassword) lockScreenNow();
+  else scheduleInactivityLockReset();
 }

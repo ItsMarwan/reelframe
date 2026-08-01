@@ -1109,7 +1109,7 @@ function bindSettingsModal(){
     toast(state.algoEnabled ? 'Personalized recommendations turned on' : 'Personalized recommendations turned off');
   });
 
-  lockToggle.addEventListener('change', () => {
+  lockToggle.addEventListener('change', async () => {
     if(lockToggle.checked){
       if(!state.lockPassword){
         toast('Set a password before enabling lock.');
@@ -1121,7 +1121,7 @@ function bindSettingsModal(){
       toast('Screen lock enabled');
       scheduleInactivityLockReset();
     } else {
-      const attempt = lockPasswordInput.value.trim();
+      const attempt = await sha256Hex(lockPasswordInput.value.trim());
       if(state.lockPassword && attempt !== state.lockPassword){
         toast('Enter the current password to disable locking.');
         lockToggle.checked = true;
@@ -1133,18 +1133,16 @@ function bindSettingsModal(){
     }
   });
 
-  setLockPasswordBtn.addEventListener('click', () => {
+  setLockPasswordBtn.addEventListener('click', async () => {
     const value = lockPasswordInput.value.trim();
     const confirmValue = lockPasswordConfirmInput ? lockPasswordConfirmInput.value.trim() : value;
     if(!value){ toast('Enter a password first.'); return; }
     if(value !== confirmValue){ toast('Passwords do not match.'); return; }
-    if(state.lockPassword && state.lockPassword !== value){
-      toast('Password updated. Use the new password when unlocking or disabling the lock.');
-    } else {
-      toast('Password saved. You can now enable lock protection.');
-    }
-    state.lockPassword = value;
+    const hash = await sha256Hex(value);
+    const isUpdate = !!state.lockPassword && state.lockPassword !== hash;
+    state.lockPassword = hash;
     saveLockPassword();
+    toast(isUpdate ? 'Password updated. Use the new password when unlocking or disabling the lock.' : 'Password saved. You can now enable lock protection.');
     lockPasswordInput.value = '';
     if(lockPasswordConfirmInput) lockPasswordConfirmInput.value = '';
   });

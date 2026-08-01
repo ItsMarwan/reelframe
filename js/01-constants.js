@@ -1,5 +1,13 @@
 'use strict';
 
+/* Captured immediately, before any other script executes, so even if a
+   later script (or someone poking at the DOM) deletes #lockGate, we still
+   have its original markup to rebuild from. */
+const LOCK_GATE_TEMPLATE = (function(){
+  const el = document.getElementById('lockGate');
+  return el ? el.outerHTML : null;
+})();
+
 /* ==========================================================================
    Constants
    ========================================================================== */
