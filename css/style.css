@@ -1194,6 +1194,16 @@ video::-webkit-media-text-track-display{
 .setting-desc{ font-size:12px; color: var(--text-faint); line-height:1.5; max-width:290px; }
 .setting-actions{ display:flex; gap:8px; flex-wrap:wrap; }
 .btn-ghost.small{ padding:7px 10px; font-size:12px; border-radius:8px; }
+.setting-input{
+  background: var(--surface-2); border:1px solid var(--border);
+  color: var(--text); border-radius:8px; padding:8px 10px; font:inherit; font-size:12.5px;
+  min-width:0; box-sizing:border-box;
+}
+.setting-input:focus{ outline:none; border-color: var(--teal); }
+.setting-input::-webkit-outer-spin-button,
+.setting-input::-webkit-inner-spin-button{ margin:0; }
+.setting-input[type="number"]{ -moz-appearance:textfield; }
+.setting-password-row form{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .toggle-switch{ position:relative; display:inline-block; width:42px; height:24px; flex:0 0 auto; margin-top:2px; }
 .toggle-switch input{ opacity:0; width:0; height:0; }
 .toggle-slider{
@@ -1485,8 +1495,29 @@ img, video{
 
 .share-auto-approve-select{
   border:1px solid var(--border); background: var(--surface-2);
-  padding:8px 10px; border-radius:8px; color: var(--text); font-size:12.5px;
+  padding:8px 34px 8px 10px; border-radius:8px; color: var(--text); font-size:12.5px;
+  appearance:none; cursor:pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-faint) 50%),
+    linear-gradient(135deg, var(--text-faint) 50%, transparent 50%);
+  background-position: calc(100% - 14px) calc(50% - 2px), calc(100% - 9px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
 }
+.settings-list .share-auto-approve-select,
+.settings-list .filter-select{
+  border:1px solid var(--border); background: var(--surface-2);
+  padding:8px 34px 8px 10px; border-radius:8px; color: var(--text); font-size:12.5px;
+  appearance:none; cursor:pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-faint) 50%),
+    linear-gradient(135deg, var(--text-faint) 50%, transparent 50%);
+  background-position: calc(100% - 14px) calc(50% - 2px), calc(100% - 9px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.settings-list .share-auto-approve-select option,
+.settings-list .filter-select option{ color: var(--text); background: var(--surface-2); }
 
 .music-bar-track{
   display:flex; align-items:center; gap:11px; flex:0 0 260px; min-width:0;

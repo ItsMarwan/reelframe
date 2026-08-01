@@ -368,6 +368,48 @@ function bindNsfwRegionScanButtons(){
 
 /* ---------- targeted region blur (focus view) ---------- */
 
+/* Draws imgEl at full res onto canvasEl, then blurs just the flagged boxes
+   by drawing those sub-rectangles back onto the canvas with a blur filter. */
+function blurRegionsToCanvas(imgEl, canvasEl, boxes, blurRadius = 16){
+  const w = imgEl.naturalWidth || canvasEl.clientWidth || 320;
+  const h = imgEl.naturalHeight || canvasEl.clientHeight || 180;
+  if(!w || !h) return;
+
+  canvasEl.width = w; canvasEl.height = h;
+  const ctx = canvasEl.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(imgEl, 0, 0, w, h);
+
+  boxes.forEach(box => {
+    const bx = Math.round(box.x * w), by = Math.round(box.y * h);
+    const bw = Math.max(1, Math.round(box.w * w)), bh = Math.max(1, Math.round(box.h * h));
+    ctx.save();
+    ctx.filter = `blur(${blurRadius}px)`;
+    ctx.drawImage(imgEl, bx, by, bw, bh, bx, by, bw, bh);
+    ctx.restore();
+  });
+}
+
+/* Draws imgEl at full res onto canvasEl, then paints solid black rectangles
+   over the flagged boxes to fully mask them. */
+function blackboxRegionsToCanvas(imgEl, canvasEl, boxes){
+  const w = imgEl.naturalWidth || canvasEl.clientWidth || 320;
+  const h = imgEl.naturalHeight || canvasEl.clientHeight || 180;
+  if(!w || !h) return;
+
+  canvasEl.width = w; canvasEl.height = h;
+  const ctx = canvasEl.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(imgEl, 0, 0, w, h);
+  ctx.fillStyle = '#000';
+
+  boxes.forEach(box => {
+    const bx = Math.round(box.x * w), by = Math.round(box.y * h);
+    const bw = Math.max(1, Math.round(box.w * w)), bh = Math.max(1, Math.round(box.h * h));
+    ctx.fillRect(bx, by, bw, bh);
+  });
+}
+
 /* Draws imgEl at full res onto canvasEl, then pixelates just the flagged
    boxes on top — same mosaic technique as the whole-image fallback, just
    confined to each box. */

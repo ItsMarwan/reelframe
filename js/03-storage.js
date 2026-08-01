@@ -325,6 +325,11 @@ function loadNsfwBlurEnabled(){
   return raw === null ? true : raw === '1';
 }
 function saveNsfwBlurEnabled(){ localStorage.setItem(NSFW_BLUR_ENABLED_KEY, state.nsfwBlurEnabled ? '1' : '0'); }
+function loadNsfwBlurMethod(){
+  const raw = localStorage.getItem(NSFW_BLUR_METHOD_KEY);
+  return ['blur', 'pixelate', 'blackbox'].includes(raw) ? raw : 'pixelate';
+}
+function saveNsfwBlurMethod(){ localStorage.setItem(NSFW_BLUR_METHOD_KEY, state.nsfwBlurMethod || 'pixelate'); }
 
 /* New — NSFW scan result cache, keyed by favKey(item) ("type:path"). Kept in
    localStorage (like watchProgress) so it round-trips through the existing

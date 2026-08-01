@@ -188,9 +188,15 @@ function hideNsfwProgress(){
 /* ---------- full-library scan ---------- */
 
 function nsfwScanTargets(force, category){
-  let images = state.rawImages.filter(i => !i.pairRemote);
-  if(category && category !== 'all') images = images.filter(i => i.category === category);
-  const all = images.map(i => ({ item: i }));
+  const images = state.rawImages.filter(i => !i.pairRemote);
+  const snapshots = state.snapshots.filter(s => s && s.type === 'image' && !s.pairRemote);
+
+  let collection = [...images, ...snapshots];
+  if(category && category !== 'all'){
+    collection = collection.filter(item => item.category === category);
+  }
+
+  const all = collection.map(item => ({ item }));
   if(force) return all;
   return all.filter(({ item }) => !isNsfwRecordFresh(item, getNsfwRecord(item)));
 }
@@ -214,9 +220,11 @@ function populateNsfwScanCategorySelect(){
   const select = getNsfwScanCategorySelectEl();
   if(!select) return;
   const cats = (state.categoriesByTab && state.categoriesByTab.images) ? state.categoriesByTab.images : [];
+  const snapshotOption = 'Snapshots';
   const current = select.value || 'all';
-  select.innerHTML = `<option value="all">All photos</option>${cats.map(cat => `<option value="${escapeAttr(cat)}">${escapeHtml(cat)}</option>`).join('')}`;
-  select.value = (current === 'all' || cats.includes(current)) ? current : 'all';
+  const categoryOptions = [...new Set([...cats, snapshotOption])].map(cat => `<option value="${escapeAttr(cat)}">${escapeHtml(cat)}</option>`).join('');
+  select.innerHTML = `<option value="all">All photos</option>${categoryOptions}`;
+  select.value = (current === 'all' || [...cats, snapshotOption].includes(current)) ? current : 'all';
 }
 
 async function scanLibraryForNsfw(opts = {}){
@@ -335,10 +343,37 @@ function refreshNsfwVisuals(){
   if(focusView && !focusView.hidden && state.currentImage) applyFocusNsfwGate(state.currentImage);
 }
 
-/* ---------- focus-view gate (pixelate + click-to-unblur) ---------- */
+/* ---------- focus-view gate (blur / pixelate / black-box + click-to-unblur) ---------- */
 
 function nsfwWarningIconSVG(){
   return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5.2L5.5 16a2 2 0 0 0 1.7 3h9.6a2 2 0 0 0 1.7-3L14 8.2V3" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><circle cx="12" cy="16.3" r="1" fill="currentColor"/></svg>';
+}
+
+function getNsfwBlurMethod(){
+  return ['blur', 'pixelate', 'blackbox'].includes(state.nsfwBlurMethod) ? state.nsfwBlurMethod : 'pixelate';
+}
+
+function blurImageToCanvas(imgEl, canvasEl, blurRadius = 22){
+  const w = imgEl.naturalWidth || canvasEl.clientWidth || 320;
+  const h = imgEl.naturalHeight || canvasEl.clientHeight || 180;
+  if(!w || !h) return;
+  canvasEl.width = w; canvasEl.height = h;
+  const ctx = canvasEl.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  ctx.filter = `blur(${blurRadius}px)`;
+  ctx.drawImage(imgEl, 0, 0, w, h);
+  ctx.filter = 'none';
+}
+
+function blackboxImageToCanvas(imgEl, canvasEl){
+  const w = imgEl.naturalWidth || canvasEl.clientWidth || 320;
+  const h = imgEl.naturalHeight || canvasEl.clientHeight || 180;
+  if(!w || !h) return;
+  canvasEl.width = w; canvasEl.height = h;
+  const ctx = canvasEl.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, w, h);
 }
 
 /* Draws a heavily-mosaiced version of imgEl onto canvasEl by rendering at a
@@ -361,7 +396,20 @@ function pixelateImageToCanvas(imgEl, canvasEl, pixelSize = 22){
   ctx.drawImage(small, 0, 0, smallW, smallH, 0, 0, w, h);
 }
 
-/* Shows/hides the pixelated gate over #focusImg for the current photo.
+function renderFocusNsfwCanvas(imgEl, canvasEl, method, boxes = []){
+  if(method === 'blur'){
+    if(boxes.length) blurRegionsToCanvas(imgEl, canvasEl, boxes);
+    else blurImageToCanvas(imgEl, canvasEl);
+  } else if(method === 'blackbox'){
+    if(boxes.length) blackboxRegionsToCanvas(imgEl, canvasEl, boxes);
+    else blackboxImageToCanvas(imgEl, canvasEl);
+  } else {
+    if(boxes.length) pixelateRegionsToCanvas(imgEl, canvasEl, boxes);
+    else pixelateImageToCanvas(imgEl, canvasEl);
+  }
+}
+
+/* Shows/hides the gate over #focusImg for the current photo.
    Resets to "hidden behind the gate" every time it's called (i.e. every time
    a photo is opened), so unblurring one photo never carries over to the
    next. */
@@ -388,12 +436,13 @@ function applyFocusNsfwGate(item){
   canvas.hidden = false;
 
   // Prefer the region scan (blurs just the flagged spots) when it's run for
-  // this photo; otherwise fall back to blurring the whole frame.
+  // this photo; otherwise fall back to the full-frame method the user chose.
   const regionRecord = (typeof getNsfwRegionRecord === 'function') ? getNsfwRegionRecord(item) : null;
   const hasFreshRegions = regionRecord && isRegionRecordFresh(item, regionRecord) && regionRecord.boxes.length;
+  const method = getNsfwBlurMethod();
   const draw = () => {
-    if(hasFreshRegions) pixelateRegionsToCanvas(img, canvas, regionRecord.boxes);
-    else pixelateImageToCanvas(img, canvas);
+    if(hasFreshRegions) renderFocusNsfwCanvas(img, canvas, method, regionRecord.boxes);
+    else renderFocusNsfwCanvas(img, canvas, method);
   };
   if(img.complete && img.naturalWidth) draw();
   else img.addEventListener('load', draw, { once: true });

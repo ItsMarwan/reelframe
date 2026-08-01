@@ -41,6 +41,7 @@ const NSFW_FEATURE_UNLOCK_KEY = 'reelframe-nsfw-unlocked-v1';
 const NSFW_REDEEM_CODE = 'REELFRAME-NSFW-BETA';
 const NSFW_SCAN_ON_STARTUP_KEY = 'reelframe-nsfw-scan-startup-v1';
 const NSFW_BLUR_ENABLED_KEY = 'reelframe-nsfw-blur-enabled-v1';
+const NSFW_BLUR_METHOD_KEY = 'reelframe-nsfw-blur-method-v1';
 const NSFW_RESULTS_KEY = 'reelframe-nsfw-results-v1';
 /* Combined Porn+Hentai+Sexy probability at/above which a photo gets flagged. */
 const NSFW_SCORE_THRESHOLD = 0.72;

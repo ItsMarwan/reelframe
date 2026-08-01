@@ -30,6 +30,7 @@ async function exportLibraryData(){
     nsfwResults: state.nsfwResults,
     nsfwScanOnStartup: state.nsfwScanOnStartup,
     nsfwBlurEnabled: state.nsfwBlurEnabled,
+    nsfwBlurMethod: state.nsfwBlurMethod,
     exportedAt: new Date().toISOString(),
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -173,6 +174,10 @@ async function importLibraryData(file){
     if(typeof parsed.nsfwBlurEnabled === 'boolean'){
       state.nsfwBlurEnabled = parsed.nsfwBlurEnabled;
       saveNsfwBlurEnabled();
+    }
+    if(['blur', 'pixelate', 'blackbox'].includes(parsed.nsfwBlurMethod)){
+      state.nsfwBlurMethod = parsed.nsfwBlurMethod;
+      saveNsfwBlurMethod();
     }
     if(Array.isArray(parsed.snapshots) && parsed.snapshots.length){
       if(isReplace) await clearAllSnapshots();
@@ -376,6 +381,7 @@ function bindSettingsModal(){
   const nsfwScanBtn = document.getElementById('nsfwScanBtn');
   const nsfwScanStartupToggle = document.getElementById('nsfwScanStartupToggle');
   const nsfwBlurToggle = document.getElementById('nsfwBlurToggle');
+  const nsfwBlurMethodSelect = document.getElementById('nsfwBlurMethodSelect');
   const nsfwRegionScanBtn = document.getElementById('nsfwRegionScanBtn');
   const nsfwRegionPauseBtn = document.getElementById('nsfwRegionPauseBtn');
   const redeemCodeInput = document.getElementById('redeemCodeInput');
@@ -384,6 +390,7 @@ function bindSettingsModal(){
   function refreshNsfwFeatureUI(){
     if(nsfwScanStartupToggle) nsfwScanStartupToggle.disabled = !state.nsfwFeatureUnlocked;
     if(nsfwBlurToggle) nsfwBlurToggle.disabled = !state.nsfwFeatureUnlocked;
+    if(nsfwBlurMethodSelect) nsfwBlurMethodSelect.disabled = !state.nsfwFeatureUnlocked;
     if(nsfwRegionScanBtn) nsfwRegionScanBtn.disabled = !state.nsfwFeatureUnlocked;
     if(nsfwRegionPauseBtn) nsfwRegionPauseBtn.disabled = !state.nsfwFeatureUnlocked;
     updateNsfwScanUI();
@@ -429,6 +436,15 @@ function bindSettingsModal(){
       toast(state.nsfwBlurEnabled ? 'Flagged photos will be blurred and tagged' : 'Flagged photos will show normally');
     });
   }
+  if(nsfwBlurMethodSelect){
+    nsfwBlurMethodSelect.addEventListener('change', () => {
+      const method = ['blur', 'pixelate', 'blackbox'].includes(nsfwBlurMethodSelect.value) ? nsfwBlurMethodSelect.value : 'pixelate';
+      state.nsfwBlurMethod = method;
+      saveNsfwBlurMethod();
+      refreshNsfwVisuals();
+      toast(`Focus blur method set to ${nsfwBlurMethodSelect.options[nsfwBlurMethodSelect.selectedIndex].text}`);
+    });
+  }
 
 
   const importInput = document.createElement('input');
@@ -451,6 +467,7 @@ function bindSettingsModal(){
     if(installBtn) installBtn.hidden = !deferredInstallPrompt;
     if(nsfwScanStartupToggle) nsfwScanStartupToggle.checked = state.nsfwScanOnStartup;
     if(nsfwBlurToggle) nsfwBlurToggle.checked = state.nsfwBlurEnabled;
+    if(nsfwBlurMethodSelect) nsfwBlurMethodSelect.value = state.nsfwBlurMethod || 'pixelate';
     updateNsfwScanUI();
     updateNsfwRegionScanUI();
     backdrop.hidden = false;

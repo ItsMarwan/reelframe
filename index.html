@@ -1019,8 +1019,8 @@
         </div>
         <div class="setting-actions setting-password-row">
           <form onsubmit="return false;">
-            <input id="lockPasswordInput" type="password" class="lock-password-input" placeholder="Enter password">
-            <input id="lockPasswordConfirmInput" type="password" class="lock-password-input" placeholder="Confirm password">
+            <input id="lockPasswordInput" type="password" class="setting-input" placeholder="Enter password">
+            <input id="lockPasswordConfirmInput" type="password" class="setting-input" placeholder="Confirm password">
             <button id="setLockPasswordBtn" class="btn-ghost small" type="button">Save</button>
           </form>
         </div>
@@ -1030,14 +1030,14 @@
           <div class="setting-title">Auto-lock after inactivity</div>
           <div class="setting-desc">Lock Reelframe automatically after this many minutes without any activity. 0 disables this.</div>
         </div>
-        <input id="lockTimeoutInput" type="number" min="0" step="1" class="lock-password-input" style="max-width:90px;" placeholder="0">
+        <input id="lockTimeoutInput" type="number" min="0" step="1" class="setting-input" style="max-width:90px;" placeholder="0">
       </div>
       <div class="setting-row">
         <div class="setting-text">
           <div class="setting-title">Lock delay after losing focus</div>
           <div class="setting-desc">Wait this many seconds after the window loses focus before locking. 0 locks instantly.</div>
         </div>
-        <input id="lockBlurDelayInput" type="number" min="0" step="1" class="lock-password-input" style="max-width:90px;" placeholder="0">
+        <input id="lockBlurDelayInput" type="number" min="0" step="1" class="setting-input" style="max-width:90px;" placeholder="0">
       </div>
       <div class="setting-row">
         <div class="setting-text">
@@ -1075,7 +1075,7 @@
           <div class="setting-desc">Scans your photos and flags any that may contain NSFW content. Still in development — requires a redeem code to enable.</div>
         </div>
         <div class="setting-actions">
-          <select id="nsfwScanCategorySelect" class="filter-select" disabled>
+          <select id="nsfwScanCategorySelect" class="share-auto-approve-select" disabled>
             <option value="all">All photos</option>
           </select>
           <button id="nsfwScanBtn" class="btn-ghost small" type="button" disabled>Scan library</button>
@@ -1109,6 +1109,17 @@
       </div>
       <div class="setting-row">
         <div class="setting-text">
+          <div class="setting-title">Focus blur method</div>
+          <div class="setting-desc">Pick how the focus view hides flagged photos: normal blur, pixelate, or black box.</div>
+        </div>
+        <select id="nsfwBlurMethodSelect" class="share-auto-approve-select" disabled>
+          <option value="blur">Normal blur</option>
+          <option value="pixelate">Pixelate</option>
+          <option value="blackbox">Black box</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
           <div class="setting-title">
             Region detection
             <span class="beta-badge" title="Still in development">
@@ -1136,7 +1147,7 @@
         </div>
         <div class="setting-actions setting-password-row">
           <form onsubmit="return false;">
-            <input id="redeemCodeInput" type="text" class="lock-password-input" placeholder="Enter code">
+            <input id="redeemCodeInput" type="text" class="setting-input" placeholder="Enter code">
             <button id="redeemCodeBtn" class="btn-ghost small" type="button">Redeem</button>
           </form>
         </div>
