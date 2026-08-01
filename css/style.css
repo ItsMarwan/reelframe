@@ -1227,6 +1227,21 @@ video::-webkit-media-text-track-display{
 .setting-desc{ font-size:12px; color: var(--text-faint); line-height:1.5; max-width:290px; }
 .setting-actions{ display:flex; gap:8px; flex-wrap:wrap; }
 .btn-ghost.small{ padding:7px 10px; font-size:12px; border-radius:8px; }
+
+/* Two NSFW scan panels (whole-photo + region) shown side by side so their
+   pickers/buttons are easy to compare and use together. Wraps to a single
+   column on narrow viewports rather than squeezing. */
+.nsfw-scan-pair{ display:flex; gap:14px; flex-wrap:wrap; margin: 4px 0; }
+.nsfw-scan-col{
+  flex:1 1 260px; min-width:230px;
+  background: var(--surface-2); border:1px solid var(--border-soft);
+  border-radius:12px; padding:10px 14px;
+}
+.nsfw-scan-col .setting-row{ padding:6px 0; }
+.nsfw-scan-col .setting-desc{ max-width:none; }
+.nsfw-scan-col .setting-actions{ width:100%; }
+.nsfw-scan-col .setting-actions select{ flex:1 1 auto; min-width:0; }
+
 .setting-input{
   background: var(--surface-2); border:1px solid var(--border);
   color: var(--text); border-radius:8px; padding:8px 10px; font:inherit; font-size:12.5px;

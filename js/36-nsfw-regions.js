@@ -214,24 +214,53 @@ async function scanImageItemForRegions(item){
 
 let nsfwRegionScanState = { running: false, paused: false, processed: 0, total: 0, cancel: false };
 
-function nsfwRegionQueueTargets(force){
+function nsfwRegionQueueTargets(force, category){
   const images = state.rawImages.filter(i => !i.pairRemote);
-  if(force) return images;
-  return images.filter(i => !isRegionRecordFresh(i, getNsfwRegionRecord(i)));
+  const snapshots = state.snapshots.filter(s => s && s.type === 'image' && !s.pairRemote);
+
+  let collection = [...images, ...snapshots];
+  if(category && category !== 'all'){
+    collection = collection.filter(item => item.category === category);
+  }
+
+  if(force) return collection;
+  return collection.filter(i => !isRegionRecordFresh(i, getNsfwRegionRecord(i)));
 }
 
-async function runNsfwRegionQueue(keys, startIndex){
+/* ---------- category picker (Settings) — mirrors 35-nsfw-scan.js's ---------- */
+
+function getNsfwRegionScanCategorySelectEl(){
+  return document.getElementById('nsfwRegionScanCategorySelect');
+}
+
+function getSelectedNsfwRegionScanCategory(){
+  const el = getNsfwRegionScanCategorySelectEl();
+  return el ? (el.value || 'all') : 'all';
+}
+
+function populateNsfwRegionScanCategorySelect(){
+  const select = getNsfwRegionScanCategorySelectEl();
+  if(!select) return;
+  const cats = (state.categoriesByTab && state.categoriesByTab.images) ? state.categoriesByTab.images : [];
+  const snapshotOption = 'Snapshots';
+  const current = select.value || 'all';
+  const categoryOptions = [...new Set([...cats, snapshotOption])].map(cat => `<option value="${escapeAttr(cat)}">${escapeHtml(cat)}</option>`).join('');
+  select.innerHTML = `<option value="all">All photos</option>${categoryOptions}`;
+  select.value = (current === 'all' || [...cats, snapshotOption].includes(current)) ? current : 'all';
+}
+
+async function runNsfwRegionQueue(keys, startIndex, categoryLabel = ''){
   nsfwRegionScanState = { running: true, paused: false, processed: startIndex, total: keys.length, cancel: false };
   updateNsfwRegionScanUI();
-  if(startIndex === 0) toast(`Scanning ${keys.length} photo${keys.length === 1 ? '' : 's'} for NSFW regions…`);
-  showNsfwProgress('Scanning for NSFW regions…', startIndex, keys.length);
+  if(startIndex === 0) toast(`Scanning ${keys.length} photo${keys.length === 1 ? '' : 's'}${categoryLabel} for NSFW regions…`);
+  showNsfwProgress(`Scanning for NSFW regions${categoryLabel}…`, startIndex, keys.length);
 
-  const byKey = new Map([...state.rawImages].map(i => [favKey(i), i]));
+  const byKey = new Map([...state.rawImages, ...state.snapshots.filter(s => s && s.type === 'image')].map(i => [favKey(i), i]));
   let i = startIndex;
   for(; i < keys.length; i++){
     if(nsfwRegionScanState.cancel) break;
     if(nsfwRegionScanState.paused){
-      saveNsfwRegionQueue(keys, i);
+      saveNsfwRegionQueue(keys, i, categoryLabel);
       break;
     }
     const item = byKey.get(keys[i]);
@@ -240,10 +269,10 @@ async function runNsfwRegionQueue(keys, startIndex){
       catch(e){ /* skip whatever file wouldn't decode or infer */ }
     }
     nsfwRegionScanState.processed = i + 1;
-    showNsfwProgress('Scanning for NSFW regions…', nsfwRegionScanState.processed, nsfwRegionScanState.total);
+    showNsfwProgress(`Scanning for NSFW regions${categoryLabel}…`, nsfwRegionScanState.processed, nsfwRegionScanState.total);
     if(i % 5 === 0 || i === keys.length - 1){
       saveNsfwRegions();
-      saveNsfwRegionQueue(keys, i + 1);
+      saveNsfwRegionQueue(keys, i + 1, categoryLabel);
       updateNsfwRegionScanUI();
       refreshNsfwVisuals();
     }
@@ -277,15 +306,18 @@ async function startNsfwRegionScan(opts = {}){
   if(!state.nsfwFeatureUnlocked){ toast('Redeem a code to unlock NSFW detection first.'); return; }
   if(nsfwRegionScanState.running){ toast('A region scan is already running.'); return; }
 
-  const targets = nsfwRegionQueueTargets(!!opts.force);
-  if(!targets.length){ toast('Nothing new to scan — everything is already up to date.'); return; }
+  const category = opts.category || getSelectedNsfwRegionScanCategory();
+  const categoryLabel = category === 'all' ? '' : ` in "${category}"`;
+
+  const targets = nsfwRegionQueueTargets(!!opts.force, category);
+  if(!targets.length){ toast(`Nothing new to scan${categoryLabel} — everything is already up to date.`); return; }
 
   try{ await loadNudenetSession(); }
   catch(e){ toast('Could not load the region-detection model — check your connection and try again.'); return; }
 
   const keys = targets.map(i => favKey(i));
-  saveNsfwRegionQueue(keys, 0);
-  runNsfwRegionQueue(keys, 0);
+  saveNsfwRegionQueue(keys, 0, categoryLabel);
+  runNsfwRegionQueue(keys, 0, categoryLabel);
 }
 
 async function resumeNsfwRegionScan(){
@@ -297,7 +329,7 @@ async function resumeNsfwRegionScan(){
   try{ await loadNudenetSession(); }
   catch(e){ toast('Could not load the region-detection model — check your connection and try again.'); return; }
 
-  runNsfwRegionQueue(saved.keys, saved.index);
+  runNsfwRegionQueue(saved.keys, saved.index, saved.category || '');
 }
 
 function pauseNsfwRegionScan(){
@@ -321,7 +353,11 @@ function updateNsfwRegionScanUI(){
   const scanBtn = document.getElementById('nsfwRegionScanBtn');
   const pauseBtn = document.getElementById('nsfwRegionPauseBtn');
   const status = document.getElementById('nsfwRegionScanStatus');
+  const categorySelect = getNsfwRegionScanCategorySelectEl();
   const paused = hasPausedNsfwRegionQueue();
+
+  populateNsfwRegionScanCategorySelect();
+  if(categorySelect) categorySelect.disabled = !state.nsfwFeatureUnlocked || nsfwRegionScanState.running;
 
   if(scanBtn){
     scanBtn.disabled = !state.nsfwFeatureUnlocked;

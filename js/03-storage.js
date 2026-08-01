@@ -403,8 +403,8 @@ function loadNsfwRegionQueue(){
     return null;
   }catch(e){ return null; }
 }
-function saveNsfwRegionQueue(keys, index){
-  try{ localStorage.setItem(NSFW_REGION_QUEUE_KEY, JSON.stringify({ keys, index })); }
+function saveNsfwRegionQueue(keys, index, category){
+  try{ localStorage.setItem(NSFW_REGION_QUEUE_KEY, JSON.stringify({ keys, index, category: category || 'all' })); }
   catch(e){ /* ignore */ }
 }
 function clearNsfwRegionQueue(){

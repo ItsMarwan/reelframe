@@ -1071,28 +1071,63 @@
         </div>
         <button id="openPairModalBtn" class="btn-ghost small" type="button">Pair devices</button>
       </div>
-      <div class="setting-row">
-        <div class="setting-text">
-          <div class="setting-title">
-            NSFW content detection
-            <span class="beta-badge" title="Still in development">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5.2L5.5 16a2 2 0 0 0 1.7 3h9.6a2 2 0 0 0 1.7-3L14 8.2V3" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-              BETA
-            </span>
+      <div class="nsfw-scan-pair">
+        <div class="nsfw-scan-col">
+          <div class="setting-row">
+            <div class="setting-text">
+              <div class="setting-title">
+                NSFW content detection
+                <span class="beta-badge" title="Still in development">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5.2L5.5 16a2 2 0 0 0 1.7 3h9.6a2 2 0 0 0 1.7-3L14 8.2V3" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+                  BETA
+                </span>
+              </div>
+              <div class="setting-desc">Scans your photos and flags any that may contain NSFW content. Still in development — requires a redeem code to enable.</div>
+            </div>
           </div>
-          <div class="setting-desc">Scans your photos and flags any that may contain NSFW content. Still in development — requires a redeem code to enable.</div>
+          <div class="setting-row">
+            <div class="setting-actions">
+              <select id="nsfwScanCategorySelect" class="share-auto-approve-select" disabled>
+                <option value="all">All photos</option>
+              </select>
+              <button id="nsfwScanBtn" class="btn-ghost small" type="button" disabled>Scan library</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-text">
+              <div class="setting-title">Scan status</div>
+              <div class="setting-desc" id="nsfwScanStatus">Redeem a code below to enable NSFW detection.</div>
+            </div>
+          </div>
         </div>
-        <div class="setting-actions">
-          <select id="nsfwScanCategorySelect" class="share-auto-approve-select" disabled>
-            <option value="all">All photos</option>
-          </select>
-          <button id="nsfwScanBtn" class="btn-ghost small" type="button" disabled>Scan library</button>
-        </div>
-      </div>
-      <div class="setting-row">
-        <div class="setting-text">
-          <div class="setting-title">Scan status</div>
-          <div class="setting-desc" id="nsfwScanStatus">Redeem a code below to enable NSFW detection.</div>
+        <div class="nsfw-scan-col">
+          <div class="setting-row">
+            <div class="setting-text">
+              <div class="setting-title">
+                Region detection
+                <span class="beta-badge" title="Still in development">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5.2L5.5 16a2 2 0 0 0 1.7 3h9.6a2 2 0 0 0 1.7-3L14 8.2V3" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+                  BETA
+                </span>
+              </div>
+              <div class="setting-desc">A second, optional pass that finds the exact flagged spots in a photo so only those areas get blurred instead of the whole image. Runs in the background — safe to pause and resume, even across a reload.</div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-actions">
+              <select id="nsfwRegionScanCategorySelect" class="share-auto-approve-select" disabled>
+                <option value="all">All photos</option>
+              </select>
+              <button id="nsfwRegionScanBtn" class="btn-ghost small" type="button" disabled>Scan for regions</button>
+              <button id="nsfwRegionPauseBtn" class="btn-ghost small" type="button" disabled hidden>Pause</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-text">
+              <div class="setting-title">Region scan status</div>
+              <div class="setting-desc" id="nsfwRegionScanStatus">Redeem a code below to enable region detection.</div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="setting-row">
@@ -1125,28 +1160,6 @@
           <option value="pixelate">Pixelate</option>
           <option value="blackbox">Black box</option>
         </select>
-      </div>
-      <div class="setting-row">
-        <div class="setting-text">
-          <div class="setting-title">
-            Region detection
-            <span class="beta-badge" title="Still in development">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5.2L5.5 16a2 2 0 0 0 1.7 3h9.6a2 2 0 0 0 1.7-3L14 8.2V3" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-              BETA
-            </span>
-          </div>
-          <div class="setting-desc">A second, optional pass that finds the exact flagged spots in a photo so only those areas get blurred instead of the whole image. Runs in the background — safe to pause and resume, even across a reload.</div>
-        </div>
-        <div class="setting-actions">
-          <button id="nsfwRegionScanBtn" class="btn-ghost small" type="button" disabled>Scan for regions</button>
-          <button id="nsfwRegionPauseBtn" class="btn-ghost small" type="button" disabled hidden>Pause</button>
-        </div>
-      </div>
-      <div class="setting-row">
-        <div class="setting-text">
-          <div class="setting-title">Region scan status</div>
-          <div class="setting-desc" id="nsfwRegionScanStatus">Redeem a code below to enable region detection.</div>
-        </div>
       </div>
       <div class="setting-row">
         <div class="setting-text">
