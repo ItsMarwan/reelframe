@@ -36,6 +36,7 @@ const SHARE_AUTO_APPROVE_KEY = 'reelframe-share-auto-approve-v1';
 const FAVORITE_TIMESTAMPS_KEY = 'reelframe-favorite-timestamps-v1';
 const MINI_PLAYER_ENABLED_KEY = 'reelframe-mini-player-enabled-v1';
 const IMAGE_POP_SIZE_KEY = 'reelframe-image-pop-size-v1';
+const WEBSITE_WALLPAPER_KEY = 'reelframe-website-wallpaper-v1';
 
 const NSFW_FEATURE_UNLOCK_KEY = 'reelframe-nsfw-unlocked-v1';
 const NSFW_REDEEM_CODE = 'REELFRAME-NSFW-BETA';

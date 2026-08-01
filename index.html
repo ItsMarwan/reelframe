@@ -335,6 +335,7 @@
 
   <div id="mobileSidebarBackdrop" class="mobile-sidebar-backdrop" hidden></div>
 
+  <div id="websiteWallpaper" aria-hidden="true"></div>
   <div class="shell">
     <aside class="sidebar">
       <div class="sidebar-label">Categories</div>
@@ -972,6 +973,13 @@
       </div>
       <div class="setting-row">
         <div class="setting-text">
+          <div class="setting-title">Website background</div>
+          <div class="setting-desc">Upload your own photo or reuse one from your library, then apply a full-site wallpaper effect.</div>
+        </div>
+        <button id="openWebsiteWallpaperBtn" class="btn-ghost small" type="button">Customize</button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
           <div class="setting-title">Mini player</div>
           <div class="setting-desc">Keep a video playing in a small floating window when you leave Watch. Turn this off to just pause instead.</div>
         </div>
@@ -1156,6 +1164,112 @@
   </div>
 </div>
 
+<div id="websiteWallpaperModalBackdrop" class="modal-backdrop" hidden>
+  <div class="modal website-wallpaper-modal">
+    <div class="modal-head">
+      <h3>Website background</h3>
+      <button id="websiteWallpaperModalClose" class="btn-icon" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <p class="modal-sub">Upload a file or pick one from your library, then apply a full-page background style.</p>
+    <div class="modal-list wallpaper-modal-list">
+      <div class="wallpaper-preview-card">
+        <div class="wallpaper-preview-frame">
+          <div id="wallpaperPreview" class="wallpaper-preview"></div>
+        </div>
+      </div>
+      <div class="wallpaper-control-row">
+        <div class="setting-text">
+          <div class="setting-title">Upload an image</div>
+          <div class="setting-desc">Use any photo from your device.</div>
+        </div>
+        <div class="wallpaper-inline-actions">
+          <label class="btn-ghost small" for="websiteWallpaperUpload">Upload</label>
+          <input id="websiteWallpaperUpload" type="file" accept="image/*" hidden>
+          <button id="websiteWallpaperClearBtnTop" class="btn-ghost small" type="button">Clear</button>
+        </div>
+      </div>
+      <div id="websiteWallpaperSourceCollapsible" class="wallpaper-source-collapsible">
+        <div id="websiteWallpaperSourcePanel" class="wallpaper-source-panel">
+          <div class="wallpaper-source-filter-row">
+            <select id="websiteWallpaperCategorySelect" class="filter-select wall-select"></select>
+          </div>
+          <div class="wallpaper-source-grid-wrap">
+            <div id="websiteWallpaperSourceGrid" class="wallpaper-source-grid"></div>
+          </div>
+        </div>
+      </div>
+      <div class="wallpaper-control-row">
+        <div class="setting-text">
+          <div class="setting-title">Background effect</div>
+          <div class="setting-desc">Clear keeps the image fully visible. Frosted softens the page surface. Blur adds a real blur. Black &amp; white turns the wallpaper grayscale.</div>
+        </div>
+        <select id="websiteWallpaperEffectSelect" class="filter-select wall-select">
+          <option value="clear">Clear</option>
+          <option value="frosted">Frosted</option>
+          <option value="blur">Blur</option>
+          <option value="bw">Black &amp; white</option>
+        </select>
+      </div>
+      <div class="wallpaper-control-row">
+        <div class="setting-text">
+          <div class="setting-title">Component tone</div>
+          <div class="setting-desc">Opaque keeps the chrome normal. Frosted darkens the shell for readability. Black &amp; white makes the chrome grayscale.</div>
+        </div>
+        <select id="websiteWallpaperComponentSelect" class="filter-select wall-select">
+          <option value="opaque">Opaque</option>
+          <option value="frosted">Frosted</option>
+          <option value="bw">Black &amp; white</option>
+        </select>
+      </div>
+      <div class="wallpaper-control-row">
+        <div class="setting-text">
+          <div class="setting-title">Scale</div>
+          <div class="setting-desc">Resize the selected wallpaper before it’s applied.</div>
+        </div>
+        <div class="wallpaper-opacity-wrap">
+          <input id="websiteWallpaperScale" class="wallpaper-opacity-range" type="range" min="60" max="180" step="1" value="100">
+          <span id="websiteWallpaperScaleText" class="wallpaper-opacity-text">100%</span>
+        </div>
+      </div>
+      <div class="wallpaper-control-row">
+        <div class="setting-text">
+          <div class="setting-title">Position X</div>
+          <div class="setting-desc">Move the wallpaper horizontally.</div>
+        </div>
+        <div class="wallpaper-opacity-wrap">
+          <input id="websiteWallpaperPositionX" class="wallpaper-opacity-range" type="range" min="0" max="100" step="1" value="50">
+          <span id="websiteWallpaperPositionXText" class="wallpaper-opacity-text">50%</span>
+        </div>
+      </div>
+      <div class="wallpaper-control-row">
+        <div class="setting-text">
+          <div class="setting-title">Position Y</div>
+          <div class="setting-desc">Move the wallpaper vertically.</div>
+        </div>
+        <div class="wallpaper-opacity-wrap">
+          <input id="websiteWallpaperPositionY" class="wallpaper-opacity-range" type="range" min="0" max="100" step="1" value="50">
+          <span id="websiteWallpaperPositionYText" class="wallpaper-opacity-text">50%</span>
+        </div>
+      </div>
+      <div class="wallpaper-control-row">
+        <div class="setting-text">
+          <div class="setting-title">Opacity</div>
+          <div class="setting-desc">Lower the wallpaper opacity if you want the app shell to stay more readable.</div>
+        </div>
+        <div class="wallpaper-opacity-wrap">
+          <input id="websiteWallpaperOpacity" class="wallpaper-opacity-range" type="range" min="0" max="100" step="1" value="100">
+          <span id="websiteWallpaperOpacityText" class="wallpaper-opacity-text">100%</span>
+        </div>
+      </div>
+      <div class="setting-actions wallpaper-actions">
+        <button id="websiteWallpaperApplyBtn" class="btn-ghost small" type="button">Apply</button>
+        <button id="websiteWallpaperClearBtn" class="btn-ghost small" type="button">Clear</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="shareModalBackdrop" class="modal-backdrop" hidden>
   <div class="modal">

@@ -223,6 +223,42 @@ function loadImagePopSize(){
 function saveImagePopSize(wPct, hPct){
   try{ localStorage.setItem(IMAGE_POP_SIZE_KEY, JSON.stringify({ wPct, hPct })); } catch(e){}
 }
+function loadWebsiteWallpaper(){
+  try{
+    const raw = localStorage.getItem(WEBSITE_WALLPAPER_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(parsed && typeof parsed.image === 'string' && parsed.image.length){
+      return {
+        image: parsed.image,
+        effect: ['clear', 'blur', 'frosted', 'bw'].includes(parsed.effect) ? parsed.effect : 'clear',
+        componentEffect: ['opaque', 'frosted', 'bw'].includes(parsed.componentEffect) ? parsed.componentEffect : 'opaque',
+        opacity: typeof parsed.opacity === 'number' ? Math.max(0, Math.min(100, parsed.opacity)) : 100,
+        scale: typeof parsed.scale === 'number' ? Math.max(60, Math.min(180, parsed.scale)) : 100,
+        positionX: typeof parsed.positionX === 'number' ? Math.max(0, Math.min(100, parsed.positionX)) : 50,
+        positionY: typeof parsed.positionY === 'number' ? Math.max(0, Math.min(100, parsed.positionY)) : 50,
+      };
+    }
+    return null;
+  } catch(e){ return null; }
+}
+function saveWebsiteWallpaper(){
+  try{
+    if(!state.websiteWallpaper || !state.websiteWallpaper.image){
+      localStorage.removeItem(WEBSITE_WALLPAPER_KEY);
+      return;
+    }
+    localStorage.setItem(WEBSITE_WALLPAPER_KEY, JSON.stringify({
+      image: state.websiteWallpaper.image,
+      effect: state.websiteWallpaper.effect || 'clear',
+      componentEffect: state.websiteWallpaper.componentEffect || 'opaque',
+      opacity: typeof state.websiteWallpaper.opacity === 'number' ? state.websiteWallpaper.opacity : 100,
+      scale: typeof state.websiteWallpaper.scale === 'number' ? state.websiteWallpaper.scale : 100,
+      positionX: typeof state.websiteWallpaper.positionX === 'number' ? state.websiteWallpaper.positionX : 50,
+      positionY: typeof state.websiteWallpaper.positionY === 'number' ? state.websiteWallpaper.positionY : 50,
+    }));
+  }catch(e){}
+}
 
 function progressKeyForItem(item){ return `${item.type}:${item.path}`; }
 function getWatchProgress(item){ return item ? state.watchProgress[progressKeyForItem(item)] : null; }

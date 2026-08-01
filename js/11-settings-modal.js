@@ -10,6 +10,208 @@ function blobToDataURL(blob){
   });
 }
 
+function getWallpaperEffectFilter(effect){
+  return {
+    clear: 'none',
+    frosted: 'saturate(1.08) brightness(0.94)',
+    blur: 'blur(10px) saturate(1.08)',
+    bw: 'grayscale(1) contrast(1.06)',
+  }[effect] || 'none';
+}
+
+function clampWallpaperNumber(value, min, max, fallback){
+  const num = Number(value);
+  if(!Number.isFinite(num)) return fallback;
+  return Math.min(max, Math.max(min, num));
+}
+
+function getWallpaperCoverStyle(imageWidth, imageHeight, scale, positionX, positionY){
+  const viewportWidth = window.innerWidth || 1;
+  const viewportHeight = window.innerHeight || 1;
+  const coverScale = Math.max(viewportWidth / Math.max(imageWidth, 1), viewportHeight / Math.max(imageHeight, 1));
+  const finalScale = coverScale * (scale / 100);
+  const width = Math.max(1, imageWidth * finalScale);
+  const height = Math.max(1, imageHeight * finalScale);
+  return {
+    backgroundSize: `${width}px ${height}px`,
+    backgroundPosition: `${clampWallpaperNumber(positionX, 0, 100, 50)}% ${clampWallpaperNumber(positionY, 0, 100, 50)}%`,
+    backgroundRepeat: 'no-repeat',
+  };
+}
+
+function loadWallpaperImage(imageUrl){
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
+    img.onerror = () => resolve({ width: 0, height: 0 });
+    img.src = imageUrl;
+  });
+}
+
+async function applyWallpaperFrameStyle(el, imageUrl, effect, scale, positionX, positionY, opacity){
+  if(!el || !imageUrl) return;
+  const { width, height } = await loadWallpaperImage(imageUrl);
+  const style = getWallpaperCoverStyle(width || window.innerWidth, height || window.innerHeight, scale, positionX, positionY);
+  el.style.backgroundImage = `url(${imageUrl})`;
+  el.style.backgroundSize = style.backgroundSize;
+  el.style.backgroundPosition = style.backgroundPosition;
+  el.style.backgroundRepeat = style.backgroundRepeat;
+  el.style.opacity = String(opacity);
+  el.style.filter = getWallpaperEffectFilter(effect);
+}
+
+async function renderWebsiteWallpaper(){
+  const wallpaperEl = document.getElementById('websiteWallpaper');
+  const previewEl = document.getElementById('wallpaperPreview');
+  const componentSelect = document.getElementById('websiteWallpaperComponentSelect');
+  const effectSelect = document.getElementById('websiteWallpaperEffectSelect');
+  if(!wallpaperEl) return;
+
+  const liveComponentEffect = componentSelect && ['opaque', 'frosted', 'bw'].includes(componentSelect.value)
+    ? componentSelect.value
+    : (state.websiteWallpaper && ['opaque', 'frosted', 'bw'].includes(state.websiteWallpaper.componentEffect)
+      ? state.websiteWallpaper.componentEffect
+      : 'opaque');
+  const liveEffect = effectSelect && ['clear', 'frosted', 'blur', 'bw'].includes(effectSelect.value)
+    ? effectSelect.value
+    : (state.websiteWallpaper && ['clear', 'frosted', 'blur', 'bw'].includes(state.websiteWallpaper.effect)
+      ? state.websiteWallpaper.effect
+      : 'clear');
+
+  document.body.dataset.wallpaperComponentTone = liveComponentEffect;
+  if(componentSelect) componentSelect.value = liveComponentEffect;
+
+  if(!state.websiteWallpaper || !state.websiteWallpaper.image){
+    wallpaperEl.style.backgroundImage = 'none';
+    wallpaperEl.style.opacity = '0';
+    wallpaperEl.style.filter = 'none';
+    wallpaperEl.style.backgroundSize = 'cover';
+    wallpaperEl.style.backgroundPosition = 'center center';
+    if(previewEl) previewEl.style.backgroundImage = 'none';
+    if(previewEl) previewEl.style.filter = 'none';
+    if(previewEl) previewEl.style.backgroundSize = 'cover';
+    if(previewEl) previewEl.style.backgroundPosition = 'center center';
+    return;
+  }
+
+  const scale = clampWallpaperNumber(state.websiteWallpaper.scale, 60, 180, 100);
+  const positionX = clampWallpaperNumber(state.websiteWallpaper.positionX, 0, 100, 50);
+  const positionY = clampWallpaperNumber(state.websiteWallpaper.positionY, 0, 100, 50);
+  const opacity = Math.max(0, Math.min(1, (state.websiteWallpaper.opacity || 100) / 100));
+
+  await applyWallpaperFrameStyle(wallpaperEl, state.websiteWallpaper.image, liveEffect, scale, positionX, positionY, opacity);
+  if(previewEl) await applyWallpaperFrameStyle(previewEl, state.websiteWallpaper.image, liveEffect, scale, positionX, positionY, opacity);
+}
+
+function populateWebsiteWallpaperSourceSelect(){
+  const grid = document.getElementById('websiteWallpaperSourceGrid');
+  const categorySelect = document.getElementById('websiteWallpaperCategorySelect');
+  if(!grid || !categorySelect) return;
+
+  const sources = [...(state.rawImages || []), ...(state.snapshots || [])].filter((item) => item && item.type === 'image');
+  const categories = new Set();
+  sources.forEach((item) => {
+    const key = item.path || item.id || item.name || item.videoPath || item.videoName;
+    if(!key) return;
+    const category = (item.category || (item.source === 'snapshot' ? 'Snapshots' : 'Uncategorized')).trim();
+    if(category) categories.add(category);
+  });
+
+  const categoryList = [...categories].sort((a, b) => a.localeCompare(b));
+  const currentCategory = categorySelect.value || categoryList[0] || 'Uncategorized';
+  categorySelect.innerHTML = categoryList.map((cat) => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('');
+  if(categoryList.includes(currentCategory)) categorySelect.value = currentCategory;
+  else if(categoryList.length) categorySelect.value = categoryList[0];
+
+  const filtered = sources.filter((item) => {
+    const category = (item.category || (item.source === 'snapshot' ? 'Snapshots' : 'Uncategorized')).trim();
+    return category === categorySelect.value;
+  });
+
+  const seen = new Set();
+  grid.innerHTML = filtered.map((item) => {
+    const key = item.path || item.id || item.name || item.videoPath || item.videoName;
+    if(!key || seen.has(key)) return '';
+    seen.add(key);
+    const category = (item.category || (item.source === 'snapshot' ? 'Snapshots' : 'Uncategorized')).trim();
+    const label = (item.name || item.videoName || item.path || 'Library image').trim();
+    const previewSrc = item.file ? URL.createObjectURL(item.file) : (item.blob ? URL.createObjectURL(item.blob) : null);
+    return `
+      <button class="wallpaper-source-card" type="button" data-wallpaper-key="${escapeHtml(key)}" data-wallpaper-preview="${previewSrc ? escapeHtml(previewSrc) : ''}">
+        <div class="wallpaper-source-thumb" style="background-image:${previewSrc ? `url(${previewSrc})` : 'none'}"></div>
+        <div class="wallpaper-source-meta">
+          <div class="wallpaper-source-name">${escapeHtml(label)}</div>
+          <div class="wallpaper-source-category">${escapeHtml(category)}</div>
+        </div>
+      </button>
+    `;
+  }).join('');
+
+  grid.querySelectorAll('.wallpaper-source-card').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const sourceKey = btn.dataset.wallpaperKey;
+      const preview = btn.dataset.wallpaperPreview;
+      btn.classList.add('active');
+      grid.querySelectorAll('.wallpaper-source-card').forEach((other) => other.classList.toggle('active', other === btn));
+      if(preview){
+        const previewEl = document.getElementById('wallpaperPreview');
+        const effectSelect = document.getElementById('websiteWallpaperEffectSelect');
+        const opacityInput = document.getElementById('websiteWallpaperOpacity');
+        const componentSelect = document.getElementById('websiteWallpaperComponentSelect');
+        const wallpaperScale = document.getElementById('websiteWallpaperScale');
+        const wallpaperPositionX = document.getElementById('websiteWallpaperPositionX');
+        const wallpaperPositionY = document.getElementById('websiteWallpaperPositionY');
+        if(previewEl) previewEl.style.backgroundImage = `url(${preview})`;
+        if(previewEl) previewEl.style.filter = getWallpaperEffectFilter(effectSelect ? effectSelect.value : 'clear');
+        state.websiteWallpaper = {
+          image: preview,
+          effect: effectSelect ? effectSelect.value : 'clear',
+          componentEffect: componentSelect ? componentSelect.value : 'opaque',
+          opacity: opacityInput ? Number(opacityInput.value) : 100,
+          scale: wallpaperScale ? Number(wallpaperScale.value) : 100,
+          positionX: wallpaperPositionX ? Number(wallpaperPositionX.value) : 50,
+          positionY: wallpaperPositionY ? Number(wallpaperPositionY.value) : 50,
+        };
+        saveWebsiteWallpaper();
+        renderWebsiteWallpaper();
+      }
+      await applyWallpaperFromSource(sourceKey);
+    });
+  });
+}
+
+async function applyWallpaperFromSource(sourceKey){
+  const previewEl = document.getElementById('wallpaperPreview');
+  if(!previewEl) return;
+  const source = [...(state.rawImages || []), ...(state.snapshots || [])].find((item) => {
+    const key = item.path || item.id || item.name || item.videoPath || item.videoName;
+    return key === sourceKey;
+  });
+  if(!source) return;
+  const blob = source.file || source.blob;
+  if(!blob) return;
+  const dataURL = await blobToDataURL(blob);
+  previewEl.style.backgroundImage = `url(${dataURL})`;
+  const effectSelect = document.getElementById('websiteWallpaperEffectSelect');
+  const opacityInput = document.getElementById('websiteWallpaperOpacity');
+  const componentSelect = document.getElementById('websiteWallpaperComponentSelect');
+  const wallpaperScale = document.getElementById('websiteWallpaperScale');
+  const wallpaperPositionX = document.getElementById('websiteWallpaperPositionX');
+  const wallpaperPositionY = document.getElementById('websiteWallpaperPositionY');
+  state.websiteWallpaper = {
+    image: dataURL,
+    effect: effectSelect ? effectSelect.value : 'clear',
+    componentEffect: componentSelect ? componentSelect.value : 'opaque',
+    opacity: opacityInput ? Number(opacityInput.value) : 100,
+    scale: wallpaperScale ? Number(wallpaperScale.value) : 100,
+    positionX: wallpaperPositionX ? Number(wallpaperPositionX.value) : 50,
+    positionY: wallpaperPositionY ? Number(wallpaperPositionY.value) : 50,
+  };
+  saveWebsiteWallpaper();
+  renderWebsiteWallpaper();
+  toast('Wallpaper preview updated');
+}
+
 async function exportLibraryData(){
   const snapshotsPayload = (await Promise.all((state.snapshots || []).map(async (s) => {
     let data = null;
@@ -31,6 +233,7 @@ async function exportLibraryData(){
     nsfwScanOnStartup: state.nsfwScanOnStartup,
     nsfwBlurEnabled: state.nsfwBlurEnabled,
     nsfwBlurMethod: state.nsfwBlurMethod,
+    websiteWallpaper: state.websiteWallpaper,
     exportedAt: new Date().toISOString(),
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -178,6 +381,19 @@ async function importLibraryData(file){
     if(['blur', 'pixelate', 'blackbox'].includes(parsed.nsfwBlurMethod)){
       state.nsfwBlurMethod = parsed.nsfwBlurMethod;
       saveNsfwBlurMethod();
+    }
+    if(parsed.websiteWallpaper && typeof parsed.websiteWallpaper.image === 'string'){
+      state.websiteWallpaper = {
+        image: parsed.websiteWallpaper.image,
+        effect: ['clear', 'blur', 'frosted', 'bw'].includes(parsed.websiteWallpaper.effect) ? parsed.websiteWallpaper.effect : 'clear',
+        componentEffect: ['opaque', 'frosted', 'bw'].includes(parsed.websiteWallpaper.componentEffect) ? parsed.websiteWallpaper.componentEffect : 'opaque',
+        opacity: typeof parsed.websiteWallpaper.opacity === 'number' ? parsed.websiteWallpaper.opacity : 100,
+        scale: typeof parsed.websiteWallpaper.scale === 'number' ? parsed.websiteWallpaper.scale : 100,
+        positionX: typeof parsed.websiteWallpaper.positionX === 'number' ? parsed.websiteWallpaper.positionX : 50,
+        positionY: typeof parsed.websiteWallpaper.positionY === 'number' ? parsed.websiteWallpaper.positionY : 50,
+      };
+      saveWebsiteWallpaper();
+      renderWebsiteWallpaper();
     }
     if(Array.isArray(parsed.snapshots) && parsed.snapshots.length){
       if(isReplace) await clearAllSnapshots();
@@ -371,6 +587,24 @@ function bindSettingsModal(){
   const lockTimeoutInput = document.getElementById('lockTimeoutInput');
   const exportBtn = document.getElementById('exportDataBtn');
   const importBtn = document.getElementById('importDataBtn');
+  const openWebsiteWallpaperBtn = document.getElementById('openWebsiteWallpaperBtn');
+  const wallpaperModalBackdrop = document.getElementById('websiteWallpaperModalBackdrop');
+  const wallpaperModalClose = document.getElementById('websiteWallpaperModalClose');
+  const websiteWallpaperUpload = document.getElementById('websiteWallpaperUpload');
+  const websiteWallpaperCategorySelect = document.getElementById('websiteWallpaperCategorySelect');
+  const websiteWallpaperEffectSelect = document.getElementById('websiteWallpaperEffectSelect');
+  const websiteWallpaperComponentSelect = document.getElementById('websiteWallpaperComponentSelect');
+  const websiteWallpaperOpacity = document.getElementById('websiteWallpaperOpacity');
+  const websiteWallpaperOpacityText = document.getElementById('websiteWallpaperOpacityText');
+  const websiteWallpaperScale = document.getElementById('websiteWallpaperScale');
+  const websiteWallpaperScaleText = document.getElementById('websiteWallpaperScaleText');
+  const websiteWallpaperPositionX = document.getElementById('websiteWallpaperPositionX');
+  const websiteWallpaperPositionXText = document.getElementById('websiteWallpaperPositionXText');
+  const websiteWallpaperPositionY = document.getElementById('websiteWallpaperPositionY');
+  const websiteWallpaperPositionYText = document.getElementById('websiteWallpaperPositionYText');
+  const websiteWallpaperApplyBtn = document.getElementById('websiteWallpaperApplyBtn');
+  const websiteWallpaperClearBtn = document.getElementById('websiteWallpaperClearBtn');
+  const websiteWallpaperClearBtnTop = document.getElementById('websiteWallpaperClearBtnTop');
   const findDuplicatesBtn = document.getElementById('findDuplicatesBtn');
   const duplicateBackdrop = document.getElementById('duplicatesModalBackdrop');
   const duplicateClose = document.getElementById('duplicatesModalClose');
@@ -396,6 +630,7 @@ function bindSettingsModal(){
     updateNsfwScanUI();
     updateNsfwRegionScanUI();
   }
+  renderWebsiteWallpaper();
   refreshNsfwFeatureUI();
 
   if(redeemCodeBtn){
@@ -445,7 +680,136 @@ function bindSettingsModal(){
       toast(`Focus blur method set to ${nsfwBlurMethodSelect.options[nsfwBlurMethodSelect.selectedIndex].text}`);
     });
   }
-
+  if(openWebsiteWallpaperBtn && wallpaperModalBackdrop){
+    openWebsiteWallpaperBtn.addEventListener('click', () => {
+      populateWebsiteWallpaperSourceSelect();
+      const previewEl = document.getElementById('wallpaperPreview');
+      if(previewEl) previewEl.style.backgroundImage = state.websiteWallpaper && state.websiteWallpaper.image ? `url(${state.websiteWallpaper.image})` : 'none';
+      if(websiteWallpaperEffectSelect && state.websiteWallpaper) websiteWallpaperEffectSelect.value = state.websiteWallpaper.effect || 'clear';
+      if(websiteWallpaperComponentSelect && state.websiteWallpaper) websiteWallpaperComponentSelect.value = state.websiteWallpaper.componentEffect || 'opaque';
+      if(websiteWallpaperOpacity && state.websiteWallpaper) websiteWallpaperOpacity.value = String(state.websiteWallpaper.opacity || 100);
+      if(websiteWallpaperOpacityText) websiteWallpaperOpacityText.textContent = `${websiteWallpaperOpacity.value}%`;
+      if(websiteWallpaperScale && state.websiteWallpaper) websiteWallpaperScale.value = String(state.websiteWallpaper.scale || 100);
+      if(websiteWallpaperScaleText) websiteWallpaperScaleText.textContent = `${websiteWallpaperScale.value}%`;
+      if(websiteWallpaperPositionX && state.websiteWallpaper) websiteWallpaperPositionX.value = String(state.websiteWallpaper.positionX || 50);
+      if(websiteWallpaperPositionXText) websiteWallpaperPositionXText.textContent = `${websiteWallpaperPositionX.value}%`;
+      if(websiteWallpaperPositionY && state.websiteWallpaper) websiteWallpaperPositionY.value = String(state.websiteWallpaper.positionY || 50);
+      if(websiteWallpaperPositionYText) websiteWallpaperPositionYText.textContent = `${websiteWallpaperPositionY.value}%`;
+      renderWebsiteWallpaper();
+      wallpaperModalBackdrop.hidden = false;
+    });
+  }
+  if(wallpaperModalClose && wallpaperModalBackdrop){
+    wallpaperModalClose.addEventListener('click', () => { wallpaperModalBackdrop.hidden = true; });
+  }
+  if(wallpaperModalBackdrop){
+    wallpaperModalBackdrop.addEventListener('click', (e) => { if(e.target === wallpaperModalBackdrop) wallpaperModalBackdrop.hidden = true; });
+  }
+  if(websiteWallpaperOpacity){
+    websiteWallpaperOpacity.addEventListener('input', () => {
+      if(websiteWallpaperOpacityText) websiteWallpaperOpacityText.textContent = `${websiteWallpaperOpacity.value}%`;
+      const previewEl = document.getElementById('wallpaperPreview');
+      if(previewEl) previewEl.style.opacity = String(Math.max(0, Math.min(1, Number(websiteWallpaperOpacity.value) / 100)));
+    });
+  }
+  if(websiteWallpaperScale){
+    websiteWallpaperScale.addEventListener('input', () => {
+      if(websiteWallpaperScaleText) websiteWallpaperScaleText.textContent = `${websiteWallpaperScale.value}%`;
+      if(state.websiteWallpaper){
+        state.websiteWallpaper.scale = Number(websiteWallpaperScale.value);
+      }
+      renderWebsiteWallpaper();
+    });
+  }
+  if(websiteWallpaperPositionX){
+    websiteWallpaperPositionX.addEventListener('input', () => {
+      if(websiteWallpaperPositionXText) websiteWallpaperPositionXText.textContent = `${websiteWallpaperPositionX.value}%`;
+      if(state.websiteWallpaper){
+        state.websiteWallpaper.positionX = Number(websiteWallpaperPositionX.value);
+      }
+      renderWebsiteWallpaper();
+    });
+  }
+  if(websiteWallpaperPositionY){
+    websiteWallpaperPositionY.addEventListener('input', () => {
+      if(websiteWallpaperPositionYText) websiteWallpaperPositionYText.textContent = `${websiteWallpaperPositionY.value}%`;
+      if(state.websiteWallpaper){
+        state.websiteWallpaper.positionY = Number(websiteWallpaperPositionY.value);
+      }
+      renderWebsiteWallpaper();
+    });
+  }
+  if(websiteWallpaperCategorySelect){
+    websiteWallpaperCategorySelect.addEventListener('change', () => {
+      populateWebsiteWallpaperSourceSelect();
+    });
+  }
+  if(websiteWallpaperEffectSelect){
+    websiteWallpaperEffectSelect.addEventListener('change', () => {
+      if(state.websiteWallpaper){
+        state.websiteWallpaper.effect = websiteWallpaperEffectSelect.value;
+      }
+      const previewEl = document.getElementById('wallpaperPreview');
+      if(previewEl) previewEl.style.filter = getWallpaperEffectFilter(websiteWallpaperEffectSelect.value);
+      renderWebsiteWallpaper();
+    });
+  }
+  if(websiteWallpaperComponentSelect){
+    websiteWallpaperComponentSelect.addEventListener('change', () => {
+      if(state.websiteWallpaper){
+        state.websiteWallpaper.componentEffect = websiteWallpaperComponentSelect.value;
+      }
+      document.body.dataset.wallpaperComponentTone = websiteWallpaperComponentSelect.value;
+      renderWebsiteWallpaper();
+    });
+  }
+  if(websiteWallpaperUpload){
+    websiteWallpaperUpload.addEventListener('change', async () => {
+      const file = websiteWallpaperUpload.files && websiteWallpaperUpload.files[0];
+      if(!file) return;
+      const dataURL = await blobToDataURL(file);
+      state.websiteWallpaper = {
+        image: dataURL,
+        effect: websiteWallpaperEffectSelect ? websiteWallpaperEffectSelect.value : 'clear',
+        componentEffect: websiteWallpaperComponentSelect ? websiteWallpaperComponentSelect.value : 'opaque',
+        opacity: websiteWallpaperOpacity ? Number(websiteWallpaperOpacity.value) : 100,
+        scale: websiteWallpaperScale ? Number(websiteWallpaperScale.value) : 100,
+        positionX: websiteWallpaperPositionX ? Number(websiteWallpaperPositionX.value) : 50,
+        positionY: websiteWallpaperPositionY ? Number(websiteWallpaperPositionY.value) : 50,
+      };
+      saveWebsiteWallpaper();
+      renderWebsiteWallpaper();
+      toast('Wallpaper uploaded and ready to apply');
+      websiteWallpaperUpload.value = '';
+    });
+  }
+  if(websiteWallpaperApplyBtn){
+    websiteWallpaperApplyBtn.addEventListener('click', () => {
+      state.websiteWallpaper = {
+        image: state.websiteWallpaper && state.websiteWallpaper.image ? state.websiteWallpaper.image : '',
+        effect: websiteWallpaperEffectSelect ? websiteWallpaperEffectSelect.value : 'clear',
+        componentEffect: websiteWallpaperComponentSelect ? websiteWallpaperComponentSelect.value : 'opaque',
+        opacity: websiteWallpaperOpacity ? Number(websiteWallpaperOpacity.value) : 100,
+        scale: websiteWallpaperScale ? Number(websiteWallpaperScale.value) : 100,
+        positionX: websiteWallpaperPositionX ? Number(websiteWallpaperPositionX.value) : 50,
+        positionY: websiteWallpaperPositionY ? Number(websiteWallpaperPositionY.value) : 50,
+      };
+      saveWebsiteWallpaper();
+      renderWebsiteWallpaper();
+      toast('Website background applied');
+      if(wallpaperModalBackdrop) wallpaperModalBackdrop.hidden = true;
+    });
+  }
+  if(websiteWallpaperClearBtn || websiteWallpaperClearBtnTop){
+    const clearWallpaper = () => {
+      state.websiteWallpaper = null;
+      saveWebsiteWallpaper();
+      renderWebsiteWallpaper();
+      toast('Website background cleared');
+    };
+    if(websiteWallpaperClearBtn) websiteWallpaperClearBtn.addEventListener('click', clearWallpaper);
+    if(websiteWallpaperClearBtnTop) websiteWallpaperClearBtnTop.addEventListener('click', clearWallpaper);
+  }
 
   const importInput = document.createElement('input');
   importInput.type = 'file';

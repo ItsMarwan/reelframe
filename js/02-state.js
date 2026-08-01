@@ -21,6 +21,7 @@ const state = {
   categoryFavorites: loadCategoryFavorites(),
   favoriteTimestamps: loadFavoriteTimestamps(),
   watchProgress: loadWatchProgress(),
+  websiteWallpaper: loadWebsiteWallpaper(),
   lockEnabled: loadLockEnabled(),
   lockPassword: loadLockPassword(),
   lockTimeoutMinutes: loadLockTimeoutMinutes(),
