@@ -24,10 +24,11 @@ async function launchWithHandle(handle){
   try{
     const excluded = loadExcluded(handle.name);
     const { videos, images, audio } = await scanDirectory(handle, updateLoadingProgress, excluded);
-    if(videos.length === 0 && images.length === 0 && audio.length === 0){
+    await loadSnapshots();
+    if(videos.length === 0 && images.length === 0 && audio.length === 0 && state.snapshots.length === 0){
       await hideLoadingScreen();
       gateEl.style.display = 'flex';
-      showGateError('No supported videos, photos, or music were found in that folder (or its subfolders). Choose a different one?');
+      showGateError('No supported videos, photos, music, or saved snapshots were found in that folder (or its subfolders). Choose a different one?');
       gateStatus.textContent = '';
       pickDirBtn.disabled = false;
       return;
@@ -161,8 +162,9 @@ async function launchDemoLibrary(){
   gateEl.style.display = 'none';
   showLoadingScreen('Loading a sample library');
   try{
+    await loadSnapshots();
     const [videos, images] = await Promise.all([fetchDemoVideos(), fetchDemoPhotos()]);
-    if(videos.length === 0 && images.length === 0){
+    if(videos.length === 0 && images.length === 0 && state.snapshots.length === 0){
       await hideLoadingScreen();
       gateEl.style.display = 'flex';
       showGateError('Couldn\u2019t load the sample library right now — check your connection and try again.');
@@ -287,6 +289,7 @@ async function refreshLibrary(){
   buttons.forEach(b => { b.disabled = true; b.classList.add('refreshing'); });
   try{
     const { videos, images, audio } = await scanDirectory(state.rootHandle, null, state.excluded);
+    await loadSnapshots();
     state.rawVideos = mergeScannedItems(state.rawVideos, videos);
     state.rawImages = mergeScannedItems(state.rawImages, images);
     state.rawAudio = mergeScannedItems(state.rawAudio, audio);
