@@ -1981,6 +1981,20 @@ img, video{
   overflow: hidden;
   border-radius: 12px;
   z-index: 2;
+  background: transparent;
+}
+
+.wallpaper-cropper-overlay::before{
+  content: '';
+  position: absolute;
+  inset: -10%;
+  background-image: var(--wallpaper-full-image, none);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  filter: blur(18px) saturate(0.9) brightness(0.7);
+  transform: scale(1.08);
+  pointer-events: none;
 }
 
 .wallpaper-cropper-viewport{
@@ -1988,8 +2002,10 @@ img, video{
   overflow: hidden;
   cursor: grab;
   touch-action: none; /* let our own pointer handlers own drag/pinch */
-  background: var(--surface-2);
+  background: rgba(12, 12, 14, 0.18);
   border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  z-index: 1;
 }
 .wallpaper-cropper-viewport.dragging{ cursor: grabbing; }
 
@@ -2009,7 +2025,8 @@ img, video{
   pointer-events: none;
   border-radius: 4px;
   border: 2px solid var(--amber);
-  box-shadow: 0 0 0 9999px rgba(8, 8, 10, .68); /* dims everything outside the frame */
+  z-index: 2;
+  box-shadow: none;
 }
 
 .wallpaper-cropper-controls{ }

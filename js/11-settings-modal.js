@@ -171,6 +171,7 @@ function openWallpaperCropper(imageSrc){
     toast('Wallpaper cropper UI is missing from this page.');
     return;
   }
+  overlay.style.setProperty('--wallpaper-full-image', `url(${imageSrc})`);
   const probe = new Image();
   probe.onload = () => {
     const rect = layoutWallpaperCropperFrame();
@@ -200,7 +201,10 @@ function openWallpaperCropper(imageSrc){
 
 function closeWallpaperCropper(){
   const { overlay, controls, actions, normalControls } = wallpaperCropperEls();
-  if(overlay) overlay.hidden = true;
+  if(overlay){
+    overlay.hidden = true;
+    overlay.style.removeProperty('--wallpaper-full-image');
+  }
   if(controls) controls.hidden = true;
   if(actions) actions.hidden = true;
   if(normalControls) normalControls.hidden = false;
