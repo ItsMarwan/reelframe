@@ -106,7 +106,7 @@ const NUDENET_CLASS_NAMES = [
    on purpose (not indecent, no reason to censor them). */
 const NUDENET_BLUR_CLASSES = new Set([
   'FEMALE_BREAST_EXPOSED', 'FEMALE_GENITALIA_EXPOSED', 'MALE_GENITALIA_EXPOSED',
-  'ANUS_EXPOSED', 'MALE_BREAST_EXPOSED',
+  'BUTTOCKS_EXPOSED', 'ANUS_EXPOSED', 'MALE_BREAST_EXPOSED',
 ]);
 
 /* New in this pass */
