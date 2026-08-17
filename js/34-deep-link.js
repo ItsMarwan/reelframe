@@ -46,7 +46,15 @@ function toggleShareLinkChooser(show){
 
 function bindDeepLinkButtons(){
   const shareBtn = document.getElementById('shareLinkBtn');
-  const focusShareBtn = document.getElementById('focusShareBtn');
+  // FIX: this used to bind to `focusShareBtn` — the same button the Focus
+  // view's own openFocus() wires up to openShareModal() (25-image-viewer-
+  // and-focus.js). Two independent listeners on one button meant every
+  // "Share" tap in Focus both opened the P2P share modal *and* silently
+  // flipped the (still-hidden) Pair modal's share-link chooser panel open
+  // in the background, so it showed up already expanded next time someone
+  // opened Pair devices. Focus now has its own dedicated link button,
+  // mirroring the Watch view's separate shareVideoBtn / shareLinkBtn pair.
+  const focusShareBtn = document.getElementById('focusShareLinkBtn');
   const copyNormalBtn = document.getElementById('shareLinkCopyBtn');
   const copyImageBtn = document.getElementById('shareLinkCopyImageBtn');
 

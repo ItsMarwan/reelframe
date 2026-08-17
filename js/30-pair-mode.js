@@ -375,8 +375,9 @@ function requestPairThumb(path){
   sendPairMessage(state.pair.hostConn, { type:'request-thumb', path });
 }
 const PAIR_FILE_REQUEST_TIMEOUT_MS = 20000;
+const PAIR_FILE_REQUEST_MAX_ATTEMPTS = 3;
 
-function requestPairFile(path){
+function requestPairFileOnce(path){
   return new Promise((resolve, reject) => {
     if(!state.pair.hostConn || !isConnectionReallyOpen(state.pair.hostConn)){ reject(new Error('Not connected to the paired device.')); return; }
     const reqId = ++pairReqSeq;
@@ -397,6 +398,25 @@ function requestPairFile(path){
     });
     sendPairMessage(state.pair.hostConn, { type:'request-file', path, reqId });
   });
+}
+
+// FIX: a single dropped/timed-out request used to be a hard failure —
+// opening Watch/Focus on a paired video or photo would just show a toast
+// and leave the item unloaded, even though the pairing connection itself
+// was still fine a moment later. Real phone-to-phone / phone-to-laptop
+// connections blip constantly (a wifi handoff, the tab getting backgrounded
+// mid-transfer, a single lost DataChannel message), so give a request a
+// couple of automatic retries — with a short backoff, and re-checking the
+// connection is actually open — before surfacing an error to the person.
+function requestPairFile(path){
+  let attempt = 0;
+  const tryOnce = () => requestPairFileOnce(path).catch(err => {
+    attempt++;
+    if(attempt >= PAIR_FILE_REQUEST_MAX_ATTEMPTS) throw err;
+    if(!state.pair.hostConn) throw err; // pairing itself ended — retrying won't help
+    return new Promise(r => setTimeout(r, 600 * attempt)).then(tryOnce);
+  });
+  return tryOnce();
 }
 
 /* Turns one manifest entry into a normal library item. `pairPath` keeps

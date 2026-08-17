@@ -364,6 +364,20 @@ a, button:focus-visible, input:focus-visible, [tabindex]:focus-visible{
   border-bottom: 1px solid var(--border);
   flex-wrap: nowrap;
   min-width: 0;
+  /* FIX: .topbar and #mobileSidebarBackdrop are sibling children of #app,
+     which establishes the shared stacking context they're compared in.
+     .topbar only had z-index:2 (from the shared .app/.topbar/.sidebar/...
+     rule above), while the backdrop sits at z-index:35 — and because
+     .topbar has its own position+z-index, it forms its own stacking
+     context, so .mobile-actions-menu's z-index:80 was scoped *inside*
+     .topbar and couldn't outrank the backdrop at the #app level. Net
+     result: the whole "more actions" dropdown rendered visually but sat
+     underneath the full-screen backdrop, so every tap on it just hit the
+     backdrop (which closes the menu) instead of the actual button.
+     Raising .topbar itself above the backdrop fixes every item in it,
+     including this dropdown, without changing the sidebar/main dimming
+     the backdrop is actually meant for. */
+  z-index: 40;
 }
 .brand{
   display:flex; align-items:center; gap:9px;
@@ -1379,7 +1393,8 @@ video::-webkit-media-text-track-display{
 @media (hover: none), (pointer: coarse){
   .vcard-fav,
   .pin-fav,
-  .track-fav-btn{
+  .track-fav-btn,
+  .watch-later-btn{
     opacity: 1;
   }
 }
