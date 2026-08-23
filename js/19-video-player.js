@@ -482,6 +482,7 @@ function initCustomPlayer(){
   const skipFwdBtn = document.getElementById('skipFwdBtn');
   const speedBtn = document.getElementById('speedBtn');
   const autoplayBtn = document.getElementById('autoplayBtn');
+  const loopBtn = document.getElementById('loopBtn');
   const muteBtn = document.getElementById('muteBtn');
   const volumeIcon = document.getElementById('volumeIcon');
   const muteIcon = document.getElementById('muteIcon');
@@ -513,7 +514,7 @@ function initCustomPlayer(){
   }
   [
     centerPauseBtn, centerNextBtn, playPauseBtn, skipBackBtn, skipFwdBtn,
-    speedBtn, autoplayBtn, muteBtn, snapshotBtn, fullscreenBtn,
+    speedBtn, autoplayBtn, loopBtn, muteBtn, snapshotBtn, fullscreenBtn,
     sideCollapseBtn
   ].forEach(preventFocusSteal);
 
@@ -629,6 +630,18 @@ function initCustomPlayer(){
   });
   autoplayBtn.classList.toggle('active', state.autoplayEnabled);
 
+  if(loopBtn){
+    const syncLoopButton = () => loopBtn.classList.toggle('active', video.loop);
+    loopBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      video.loop = !video.loop;
+      syncLoopButton();
+      if(video.loop) clearNextUpPrompt({ dismissed: true });
+      showControls();
+    });
+    syncLoopButton();
+  }
+
   document.getElementById('nextUpClose').addEventListener('click', (e) => {
     e.stopPropagation();
     clearNextUpPrompt({ dismissed: true });
@@ -650,6 +663,7 @@ function initCustomPlayer(){
     showControls(true);
   });
   treatVideoAsEnded = (reason) => {
+    if(video.loop) return;
     if(nextUpPromptState.visible && nextUpPromptState.mode === 'final') return;
     debugPlayer('treating as ended', { reason });
     clearNextUpPrompt({ reset: true });
@@ -659,6 +673,10 @@ function initCustomPlayer(){
   };
 
   video.addEventListener('ended', () => {
+    if(video.loop){
+      if(state.currentVideo){ setWatchProgress(state.currentVideo, video.duration || 0, video.duration || 0); }
+      return;
+    }
     if(state.currentVideo){ setWatchProgress(state.currentVideo, video.duration || 0, video.duration || 0); }
     treatVideoAsEnded('ended-event');
   });
@@ -840,6 +858,7 @@ function initCustomPlayer(){
     else if(e.key === 'ArrowRight') skip(5, 'right');
     else if(e.key === 'f' || e.key === 'F') toggleFullscreen();
     else if(e.key === 'm' || e.key === 'M') muteBtn.click();
+    else if(e.key === 'l' || e.key === 'L') { if(loopBtn) loopBtn.click(); }
   });
 
   setPlayPauseIcons();
@@ -864,7 +883,7 @@ function bindPlayerMoreMenu(){
 
   // Close after picking autoplay/snapshot (one-shot actions).
   // Speed is left open since people often tap it a few times to cycle.
-  ['autoplayBtn', 'snapshotBtn'].forEach(id => {
+  ['autoplayBtn', 'loopBtn', 'snapshotBtn'].forEach(id => {
     const btn = document.getElementById(id);
     if(btn) btn.addEventListener('click', () => moreWrap.classList.remove('open'));
   });

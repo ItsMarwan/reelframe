@@ -174,6 +174,19 @@ function setTab(tab, opts = {}){
   if(!opts.skipRender) renderActiveGrid();
 }
 
+function openRandomMediaItem(){
+  const tab = state.tab === 'videos' || state.tab === 'images' ? state.tab : 'videos';
+  const pool = tab === 'videos' ? getFiltered('videos') : getFiltered('images');
+  if(!pool.length){
+    toast(tab === 'videos' ? 'No videos in this library yet.' : 'No photos in this library yet.');
+    return;
+  }
+  const candidate = shuffleArray(pool.slice())[0];
+  if(!candidate) return;
+  if(tab === 'videos') openWatch(candidate);
+  else openFocus(candidate);
+}
+
 /* Carries the active category from one tab to another when the person
    switches tabs — e.g. sitting in "Nature" under Videos and switching to
    Photos jumps straight to "Nature" there too, if that category exists
@@ -261,6 +274,11 @@ function bindTabAndSortEvents(){
 
   document.getElementById('backToGrid').addEventListener('click', () => goToGrid('videos'));
   document.getElementById('backToPinGrid').addEventListener('click', () => goToGrid('images'));
+
+  const randomMediaBtn = document.getElementById('randomMediaBtn');
+  if(randomMediaBtn){
+    randomMediaBtn.addEventListener('click', () => openRandomMediaItem());
+  }
 
   const searchInput = document.getElementById('searchInput');
   let t;
