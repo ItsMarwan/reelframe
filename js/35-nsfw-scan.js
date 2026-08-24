@@ -202,12 +202,13 @@ function hideNsfwProgress(){
 
 /* ---------- full-library scan ---------- */
 
-function nsfwScanTargets(force, category, includeVideos = state.nsfwIncludeVideos){
+function nsfwScanTargets(force, category, mediaScope = state.nsfwMediaScope || (state.nsfwIncludeVideos ? 'all' : 'photos')){
   const images = state.rawImages.filter(i => !i.pairRemote);
   const snapshots = state.snapshots.filter(s => s && s.type === 'image' && !s.pairRemote);
-  const videos = includeVideos ? state.rawVideos.filter(v => !v.pairRemote) : [];
+  const videos = (mediaScope === 'all' || mediaScope === 'videos') ? state.rawVideos.filter(v => !v.pairRemote) : [];
 
-  let collection = [...images, ...snapshots, ...videos];
+  const photoBase = mediaScope === 'videos' ? [] : [...images, ...snapshots];
+  let collection = [...photoBase, ...videos];
   if(category && category !== 'all'){
     collection = collection.filter(item => item.category === category);
   }
@@ -274,9 +275,9 @@ async function scanLibraryForNsfw(opts = {}){
   // specific scope; otherwise use whatever category is picked in Settings.
   const category = opts.category || getSelectedNsfwScanCategory();
   const categoryLabel = category === 'all' ? '' : ` in “${category}”`;
-  const includeVideos = typeof opts.includeVideos === 'boolean' ? opts.includeVideos : state.nsfwIncludeVideos;
+  const mediaScope = opts.mediaScope || state.nsfwMediaScope || (state.nsfwIncludeVideos ? 'all' : 'photos');
 
-  const targets = nsfwScanTargets(!!opts.force, category, includeVideos);
+  const targets = nsfwScanTargets(!!opts.force, category, mediaScope);
   if(!targets.length){
     toast(`Nothing new to scan${categoryLabel} — everything is already up to date.`);
     return;
@@ -336,9 +337,9 @@ function cancelNsfwScan(){
    every launch and shouldn't nag. */
 async function maybeAutoScanNsfwOnStartup(){
   if(!state.nsfwFeatureUnlocked || !state.nsfwScanOnStartup) return;
-  const targets = nsfwScanTargets(false, 'all', state.nsfwIncludeVideos);
+  const targets = nsfwScanTargets(false, 'all', state.nsfwMediaScope || (state.nsfwIncludeVideos ? 'all' : 'photos'));
   if(!targets.length) return;
-  await scanLibraryForNsfw({ quiet: true, category: 'all', includeVideos: state.nsfwIncludeVideos });
+  await scanLibraryForNsfw({ quiet: true, category: 'all', mediaScope: state.nsfwMediaScope || (state.nsfwIncludeVideos ? 'all' : 'photos') });
 }
 
 /* ---------- settings modal UI ---------- */

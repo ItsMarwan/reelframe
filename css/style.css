@@ -1842,6 +1842,17 @@ img, video{
 }
 .pin-item:hover .pin-fav{ opacity:1; }
 .pin-fav:hover{ background: rgba(0,0,0,.75); }
+.pin-see-later{
+  position:absolute; top:8px; right:44px; z-index:2;
+  width:30px; height:30px; border-radius:50%;
+  background: rgba(10,10,12,.55); backdrop-filter: blur(2px);
+  border:none; color:#fff; display:flex; align-items:center; justify-content:center;
+  opacity:0; transition: opacity .15s ease, background .15s ease;
+}
+.pin-item:hover .pin-see-later{ opacity:1; }
+.pin-see-later:hover{ background: rgba(0,0,0,.75); }
+.pin-see-later.is-see-later{ opacity:1; color: var(--accent); }
+.pin-see-later.is-see-later svg path{ fill: var(--accent); }
 
 .pin-checkbox{
   position:absolute; top:8px; left:8px; z-index:2;

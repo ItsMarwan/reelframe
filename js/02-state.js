@@ -32,6 +32,7 @@ const state = {
   nsfwFeatureUnlocked: loadNsfwUnlocked(),
   nsfwScanOnStartup: loadNsfwScanOnStartup(),
   nsfwBlurEnabled: loadNsfwBlurEnabled(),
+  nsfwMediaScope: loadNsfwMediaScope(),
   nsfwIncludeVideos: loadNsfwIncludeVideos(),
   nsfwBlurMethod: loadNsfwBlurMethod(),
   nsfwResults: loadNsfwResults(),         // { "type:path": {flagged,score,label,size,lastModified,scannedAt} } — whole-image classifier

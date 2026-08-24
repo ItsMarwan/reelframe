@@ -387,11 +387,22 @@ function loadNsfwBlurEnabled(){
   return raw === null ? true : raw === '1';
 }
 function saveNsfwBlurEnabled(){ localStorage.setItem(NSFW_BLUR_ENABLED_KEY, state.nsfwBlurEnabled ? '1' : '0'); }
-function loadNsfwIncludeVideos(){
-  const raw = localStorage.getItem(NSFW_INCLUDE_VIDEOS_KEY);
-  return raw === '1';
+function loadNsfwMediaScope(){
+  const raw = localStorage.getItem(NSFW_MEDIA_SCOPE_KEY);
+  if(raw === 'photos' || raw === 'videos') return raw;
+  const legacy = localStorage.getItem(NSFW_INCLUDE_VIDEOS_KEY);
+  return legacy === '1' ? 'all' : 'photos';
 }
-function saveNsfwIncludeVideos(){ localStorage.setItem(NSFW_INCLUDE_VIDEOS_KEY, state.nsfwIncludeVideos ? '1' : '0'); }
+function saveNsfwMediaScope(){ localStorage.setItem(NSFW_MEDIA_SCOPE_KEY, state.nsfwMediaScope || 'all'); }
+function loadNsfwIncludeVideos(){
+  const scope = loadNsfwMediaScope();
+  return scope === 'all' || scope === 'videos';
+}
+function saveNsfwIncludeVideos(){
+  state.nsfwMediaScope = state.nsfwIncludeVideos ? 'all' : 'photos';
+  saveNsfwMediaScope();
+  localStorage.setItem(NSFW_INCLUDE_VIDEOS_KEY, state.nsfwIncludeVideos ? '1' : '0');
+}
 function loadNsfwBlurMethod(){
   const raw = localStorage.getItem(NSFW_BLUR_METHOD_KEY);
   return ['blur', 'pixelate', 'blackbox'].includes(raw) ? raw : 'pixelate';

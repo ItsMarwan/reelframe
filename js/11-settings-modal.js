@@ -474,6 +474,7 @@ async function exportLibraryData(){
     nsfwResults: state.nsfwResults,
     nsfwScanOnStartup: state.nsfwScanOnStartup,
     nsfwBlurEnabled: state.nsfwBlurEnabled,
+    nsfwMediaScope: state.nsfwMediaScope,
     nsfwIncludeVideos: state.nsfwIncludeVideos,
     nsfwBlurMethod: state.nsfwBlurMethod,
     websiteWallpaper: state.websiteWallpaper,
@@ -629,8 +630,15 @@ async function importLibraryData(file){
       state.nsfwBlurEnabled = parsed.nsfwBlurEnabled;
       saveNsfwBlurEnabled();
     }
-    if(typeof parsed.nsfwIncludeVideos === 'boolean'){
+    if(['all', 'photos', 'videos'].includes(parsed.nsfwMediaScope)){
+      state.nsfwMediaScope = parsed.nsfwMediaScope;
+      state.nsfwIncludeVideos = parsed.nsfwMediaScope !== 'photos';
+      saveNsfwMediaScope();
+      saveNsfwIncludeVideos();
+    } else if(typeof parsed.nsfwIncludeVideos === 'boolean'){
       state.nsfwIncludeVideos = parsed.nsfwIncludeVideos;
+      state.nsfwMediaScope = parsed.nsfwIncludeVideos ? 'all' : 'photos';
+      saveNsfwMediaScope();
       saveNsfwIncludeVideos();
     }
     if(['blur', 'pixelate', 'blackbox'].includes(parsed.nsfwBlurMethod)){
@@ -868,7 +876,7 @@ function bindSettingsModal(){
   const nsfwScanBtn = document.getElementById('nsfwScanBtn');
   const nsfwScanStartupToggle = document.getElementById('nsfwScanStartupToggle');
   const nsfwBlurToggle = document.getElementById('nsfwBlurToggle');
-  const nsfwIncludeVideosToggle = document.getElementById('nsfwIncludeVideosToggle');
+  const nsfwScanMediaScopeSelect = document.getElementById('nsfwScanMediaScopeSelect');
   const nsfwBlurMethodSelect = document.getElementById('nsfwBlurMethodSelect');
   const nsfwRegionScanBtn = document.getElementById('nsfwRegionScanBtn');
   const nsfwRegionPauseBtn = document.getElementById('nsfwRegionPauseBtn');
@@ -878,7 +886,7 @@ function bindSettingsModal(){
   function refreshNsfwFeatureUI(){
     if(nsfwScanStartupToggle) nsfwScanStartupToggle.disabled = !state.nsfwFeatureUnlocked;
     if(nsfwBlurToggle) nsfwBlurToggle.disabled = !state.nsfwFeatureUnlocked;
-    if(nsfwIncludeVideosToggle) nsfwIncludeVideosToggle.disabled = !state.nsfwFeatureUnlocked;
+    if(nsfwScanMediaScopeSelect) nsfwScanMediaScopeSelect.disabled = !state.nsfwFeatureUnlocked;
     if(nsfwBlurMethodSelect) nsfwBlurMethodSelect.disabled = !state.nsfwFeatureUnlocked;
     if(nsfwRegionScanBtn) nsfwRegionScanBtn.disabled = !state.nsfwFeatureUnlocked;
     if(nsfwRegionPauseBtn) nsfwRegionPauseBtn.disabled = !state.nsfwFeatureUnlocked;
@@ -926,11 +934,14 @@ function bindSettingsModal(){
       toast(state.nsfwBlurEnabled ? 'Flagged media will be hidden and tagged' : 'Flagged media will show normally');
     });
   }
-  if(nsfwIncludeVideosToggle){
-    nsfwIncludeVideosToggle.addEventListener('change', () => {
-      state.nsfwIncludeVideos = nsfwIncludeVideosToggle.checked;
+  if(nsfwScanMediaScopeSelect){
+    nsfwScanMediaScopeSelect.addEventListener('change', () => {
+      const scope = ['all', 'photos', 'videos'].includes(nsfwScanMediaScopeSelect.value) ? nsfwScanMediaScopeSelect.value : 'all';
+      state.nsfwMediaScope = scope;
+      state.nsfwIncludeVideos = scope !== 'photos';
+      saveNsfwMediaScope();
       saveNsfwIncludeVideos();
-      toast(state.nsfwIncludeVideos ? 'Video thumbnails will be included in NSFW scans' : 'Video thumbnails are excluded from NSFW scans');
+      toast(scope === 'all' ? 'Scanning all media' : scope === 'photos' ? 'Scanning photos only' : 'Scanning videos only');
     });
   }
   if(nsfwBlurMethodSelect){
@@ -1097,7 +1108,7 @@ function bindSettingsModal(){
     if(installBtn) installBtn.hidden = !deferredInstallPrompt;
     if(nsfwScanStartupToggle) nsfwScanStartupToggle.checked = state.nsfwScanOnStartup;
     if(nsfwBlurToggle) nsfwBlurToggle.checked = state.nsfwBlurEnabled;
-    if(nsfwIncludeVideosToggle) nsfwIncludeVideosToggle.checked = state.nsfwIncludeVideos;
+    if(nsfwScanMediaScopeSelect) nsfwScanMediaScopeSelect.value = state.nsfwMediaScope || (state.nsfwIncludeVideos ? 'all' : 'photos');
     if(nsfwBlurMethodSelect) nsfwBlurMethodSelect.value = state.nsfwBlurMethod || 'pixelate';
     updateNsfwScanUI();
     updateNsfwRegionScanUI();

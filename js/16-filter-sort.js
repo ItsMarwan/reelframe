@@ -21,7 +21,7 @@ function getFiltered(tab){
     list = list.filter(isFav).map(i => ({ ...i, _addedTs: state.favoriteTimestamps[favKey(i)] || i.lastModified || 0 }));
   }
   else if(cat === '__history__') list = historyItemsFor(tab);
-  else if(cat && cat !== '__snapshots__' && cat !== '__watchlater__' && cat !== '__captioned__') list = list.filter(i => i.category === cat);
+  else if(cat && cat !== '__snapshots__' && cat !== '__watchlater__' && cat !== '__seelater__' && cat !== '__captioned__') list = list.filter(i => i.category === cat);
   if(state.filters[tab].category && state.filters[tab].category !== 'all'){
     list = list.filter(i => i.category === state.filters[tab].category);
   }
