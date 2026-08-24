@@ -35,6 +35,8 @@ const state = {
   nsfwBlurMethod: loadNsfwBlurMethod(),
   nsfwResults: loadNsfwResults(),         // { "type:path": {flagged,score,label,size,lastModified,scannedAt} } — whole-image classifier
   nsfwRegions: loadNsfwRegions(),         // { "type:path": {boxes:[{cls,score,x,y,w,h}],size,lastModified,scannedAt} } — region detector, boxes are 0-1 fractions
+  seeLater: loadSeeLater(),
+  seeLaterConsumed: loadSeeLaterConsumed(),
   shareAutoApprove: loadShareAutoApproveSetting(),
   shareItem: null,
   tab: 'videos',

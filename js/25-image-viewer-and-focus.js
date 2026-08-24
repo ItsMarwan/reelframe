@@ -41,6 +41,8 @@ let imageViewerState = {
   baseHeight: 0,
   fitScale: 1,
 };
+let focusPanState = null;
+let focusPreventClick = false;
 const POP_ZOOM_MIN = 0.45;
 const POP_ZOOM_MAX = 5;
 
@@ -349,6 +351,8 @@ function openFocus(item, opts = {}){
   showView('imageFocus');
   if(opts.push !== false) history.pushState(null, '', `?p=${encodeURIComponent(item.path)}`);
   const focusImgEl = document.getElementById('focusImg');
+  // reset any residual pan transform when opening a new photo
+  focusImgEl.style.transform = '';
   if(item.pairRemote){
     focusImgEl.removeAttribute('src');
     ensureItemUrlAsync(item).then(src => { if(state.currentImage === item) focusImgEl.src = src; })
@@ -362,6 +366,7 @@ function openFocus(item, opts = {}){
     // unblurred yet — the gate overlay/canvas already intercepts clicks in
     // that case, but this covers the img element underneath too.
     if(shouldGateItem(item)) return;
+    if(focusPreventClick){ focusPreventClick = false; return; }
     openImagePop(item);
   };
   applyFocusNsfwGate(item);
@@ -378,6 +383,17 @@ function openFocus(item, opts = {}){
     toggleFav(item);
     favBtn.classList.toggle('is-fav', isFav(item));
   };
+  const seeBtn = document.getElementById('focusSeeLaterBtn');
+  if(seeBtn){
+    seeBtn.setAttribute('data-see-later-key', favKey(item));
+    seeBtn.classList.toggle('is-see-later', isSeeLater(item));
+    seeBtn.innerHTML = seeLaterSVG(isSeeLater(item));
+    seeBtn.onclick = () => {
+      toggleSeeLater(item);
+      seeBtn.classList.toggle('is-see-later', isSeeLater(item));
+      seeBtn.innerHTML = seeLaterSVG(isSeeLater(item));
+    };
+  }
   const shareBtn = document.getElementById('focusShareBtn');
   if(shareBtn){
     shareBtn.onclick = () => openShareModal(item);
@@ -483,3 +499,35 @@ window.addEventListener('resize', () => {
   clearTimeout(focusRowCapTimer);
   focusRowCapTimer = setTimeout(capFocusRowToRows, 150);
 });
+
+function bindFocusImagePan(){
+  const wrap = document.getElementById('focusImgWrap');
+  const img = document.getElementById('focusImg');
+  if(!wrap || !img) return;
+
+  wrap.addEventListener('pointerdown', (e) => {
+    if(e.button !== 0) return;
+    focusPanState = { startX: e.clientX, startY: e.clientY, curX: 0, curY: 0, pointerId: e.pointerId };
+    wrap.classList.add('dragging');
+    try{ img.setPointerCapture(e.pointerId); }catch(_){ }
+    focusPreventClick = false;
+  });
+
+  wrap.addEventListener('pointermove', (e) => {
+    if(!focusPanState) return;
+    const dx = e.clientX - focusPanState.startX;
+    const dy = e.clientY - focusPanState.startY;
+    focusPanState.curX = dx; focusPanState.curY = dy;
+    img.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`;
+    if(Math.abs(dx) > 6 || Math.abs(dy) > 6) focusPreventClick = true;
+  });
+
+  function endPan(e){
+    if(!focusPanState) return;
+    try{ img.releasePointerCapture(focusPanState.pointerId); }catch(_){ }
+    wrap.classList.remove('dragging');
+    focusPanState = null;
+  }
+  wrap.addEventListener('pointerup', endPan);
+  wrap.addEventListener('pointercancel', endPan);
+}

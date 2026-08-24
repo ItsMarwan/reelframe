@@ -463,7 +463,9 @@ async function exportLibraryData(){
     version: 2,
     favorites: [...state.favorites],
     watchLater: [...state.watchLater],
+    seeLater: [...state.seeLater],
     watchLaterConsumed: [...state.watchLaterConsumed],
+    seeLaterConsumed: [...state.seeLaterConsumed],
     categoryFavorites: [...state.categoryFavorites],
     history: state.history,
     watchProgress: state.watchProgress,
@@ -586,9 +588,17 @@ async function importLibraryData(file){
       state.watchLater = isReplace ? new Set(parsed.watchLater) : unionSet(state.watchLater, parsed.watchLater);
       saveWatchLater();
     }
+    if(Array.isArray(parsed.seeLater)){
+      state.seeLater = isReplace ? new Set(parsed.seeLater) : unionSet(state.seeLater, parsed.seeLater);
+      saveSeeLater();
+    }
     if(Array.isArray(parsed.watchLaterConsumed)){
       state.watchLaterConsumed = isReplace ? new Set(parsed.watchLaterConsumed) : unionSet(state.watchLaterConsumed, parsed.watchLaterConsumed);
       saveWatchLaterConsumed();
+    }
+    if(Array.isArray(parsed.seeLaterConsumed)){
+      state.seeLaterConsumed = isReplace ? new Set(parsed.seeLaterConsumed) : unionSet(state.seeLaterConsumed, parsed.seeLaterConsumed);
+      saveSeeLaterConsumed();
     }
     if(Array.isArray(parsed.categoryFavorites)){
       state.categoryFavorites = isReplace ? new Set(parsed.categoryFavorites) : unionSet(state.categoryFavorites, parsed.categoryFavorites);
@@ -657,6 +667,7 @@ async function importLibraryData(file){
       if(state.tab === 'images') renderActiveGrid();
     }
     updateWatchLaterButtons();
+    updateSeeLaterButtons();
     updateFavCount();
     renderSidebar();
     renderActiveGrid();

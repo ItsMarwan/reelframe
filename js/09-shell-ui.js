@@ -183,6 +183,20 @@ function renderSidebar(){
     };
   }
 
+  const seeLaterBtn = document.querySelector('.cat-item[data-special="seelater"]');
+  if(seeLaterBtn){
+    seeLaterBtn.classList.toggle('active', activeCat === '__seelater__');
+    seeLaterBtn.onclick = () => {
+      setTab('images', { skipRender:true });
+      state.cat.images = '__seelater__';
+      document.querySelectorAll('#categoryList .cat-item').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.sidebar .cat-item[data-special]').forEach(b => b.classList.remove('active'));
+      seeLaterBtn.classList.add('active');
+      closeMobileShell();
+      goToGrid('images');
+    };
+  }
+
   const uncategorizedBtn = document.querySelector('.cat-item[data-special="uncategorized"]');
   if(uncategorizedBtn){
     const count = items.filter(i => i.category === UNCATEGORIZED).length;

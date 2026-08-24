@@ -52,6 +52,8 @@ const NSFW_SCAN_ON_STARTUP_KEY = 'reelframe-nsfw-scan-startup-v1';
 const NSFW_BLUR_ENABLED_KEY = 'reelframe-nsfw-blur-enabled-v1';
 const NSFW_BLUR_METHOD_KEY = 'reelframe-nsfw-blur-method-v1';
 const NSFW_RESULTS_KEY = 'reelframe-nsfw-results-v1';
+const SEE_LATER_KEY = 'reelframe-see-later-v1';
+const SEE_LATER_CONSUMED_KEY = 'reelframe-see-later-consumed-v1';
 /* Combined Porn+Hentai+Sexy probability at/above which a photo gets flagged. */
 const NSFW_SCORE_THRESHOLD = 0.72;
 // Where the downloaded nsfwjs model gets cached in this browser's IndexedDB

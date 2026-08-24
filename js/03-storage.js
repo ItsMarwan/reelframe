@@ -91,6 +91,18 @@ function loadWatchLaterConsumed(){
 }
 function saveWatchLaterConsumed(){ localStorage.setItem(WATCH_LATER_CONSUMED_KEY, JSON.stringify([...state.watchLaterConsumed])); }
 
+function loadSeeLater(){
+  try{ const raw = localStorage.getItem(SEE_LATER_KEY); return new Set(raw ? JSON.parse(raw) : []); }
+  catch(e){ return new Set(); }
+}
+function saveSeeLater(){ localStorage.setItem(SEE_LATER_KEY, JSON.stringify([...state.seeLater])); }
+
+function loadSeeLaterConsumed(){
+  try{ const raw = localStorage.getItem(SEE_LATER_CONSUMED_KEY); return new Set(raw ? JSON.parse(raw) : []); }
+  catch(e){ return new Set(); }
+}
+function saveSeeLaterConsumed(){ localStorage.setItem(SEE_LATER_CONSUMED_KEY, JSON.stringify([...state.seeLaterConsumed])); }
+
 function loadDiscoverSetting(){
   const raw = localStorage.getItem(DISCOVER_KEY);
   return raw === null ? true : raw === '1';
@@ -109,6 +121,20 @@ function consumeWatchLater(item){
   const key = favKey(item);
   if(state.watchLater.has(key)) state.watchLaterConsumed.add(key);
   saveWatchLaterConsumed(); updateWatchLaterButtons();
+}
+
+function isSeeLater(item){ return state.seeLater.has(favKey(item)); }
+function isSeeLaterBoosted(item){ return state.seeLater.has(favKey(item)) && !state.seeLaterConsumed.has(favKey(item)); }
+function toggleSeeLater(item){
+  const key = favKey(item);
+  if(state.seeLater.has(key)){ state.seeLater.delete(key); state.seeLaterConsumed.delete(key); }
+  else state.seeLater.add(key);
+  saveSeeLater(); saveSeeLaterConsumed(); updateSeeLaterButtons();
+}
+function consumeSeeLater(item){
+  const key = favKey(item);
+  if(state.seeLater.has(key)) state.seeLaterConsumed.add(key);
+  saveSeeLaterConsumed(); updateSeeLaterButtons();
 }
 
 function loadHistory(){
@@ -312,7 +338,7 @@ function applyExclusions(){
     images: [...ic].sort((a,b) => a.localeCompare(b)),
     music: [...mc].sort((a,b) => a.localeCompare(b)),
   };
-  const SPECIAL_CATS = ['__fav__', '__history__', '__snapshots__', '__watchlater__', '__captioned__'];
+  const SPECIAL_CATS = ['__fav__', '__history__', '__snapshots__', '__watchlater__', '__seelater__', '__captioned__'];
   ['videos','images','music'].forEach(tab => {
     const cat = state.cat[tab];
     if(cat && !SPECIAL_CATS.includes(cat) && !state.categoriesByTab[tab].includes(cat)){

@@ -1395,7 +1395,11 @@ video::-webkit-media-text-track-display{
   .vcard-fav,
   .pin-fav,
   .track-fav-btn,
-  .watch-later-btn{
+  .watch-later-btn,
+  .pin-see-later,
+  .pin-see-later.is-see-later,
+  .vcard-thumb .see-later-btn,
+  .see-later-btn{
     opacity: 1;
   }
 }

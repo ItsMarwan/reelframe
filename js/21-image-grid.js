@@ -55,6 +55,7 @@ function createPinCard(item, opts = {}){
     <img alt="${escapeAttr(item.name)}" loading="lazy" decoding="async" fetchpriority="low">
     <div class="pin-overlay"><div class="pt">${escapeHtml(item.name)}</div></div>
     <button class="pin-fav ${isFav(item)?'is-fav':''}" data-fav-key="${favKey(item)}" title="Favorite">${heartSVG(isFav(item))}</button>
+    <button class="pin-see-later ${isSeeLater(item)?'is-see-later':''}" data-see-later-key="${favKey(item)}" title="See later">${seeLaterSVG(isSeeLater(item))}</button>
     ${item.source === 'snapshot' ? '<div class="pin-checkbox"></div>' : ''}
   `;
   const img = el.querySelector('img');
@@ -98,6 +99,15 @@ function createPinCard(item, opts = {}){
     e.currentTarget.classList.toggle('is-fav', isFav(item));
     e.currentTarget.innerHTML = heartSVG(isFav(item));
   });
+  const seeBtn = el.querySelector('.pin-see-later');
+  if(seeBtn){
+    seeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleSeeLater(item);
+      seeBtn.classList.toggle('is-see-later', isSeeLater(item));
+      seeBtn.innerHTML = seeLaterSVG(isSeeLater(item));
+    });
+  }
   el.addEventListener('click', () => {
     if(state.snapshotSelectMode && item.source === 'snapshot') return;
     openFocus(item);

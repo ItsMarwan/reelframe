@@ -32,6 +32,7 @@ async function initAppUI(){
   await refreshCaptionedPaths();
   updateTotalCount();
   updateFavCount();
+  updateSeeLaterButtons();
   renderSidebar();
   renderActiveGrid();
   if(!appBound){
@@ -44,6 +45,7 @@ async function initAppUI(){
     bindUrlModal();
     bindSaveLocationModal();
     bindImagePopOverlay();
+    bindFocusImagePan();
     bindMiniPlayer();
     bindBulkDownloadButton();
     initCustomPlayer();
@@ -224,6 +226,18 @@ function updateWatchLaterButtons(){
   });
   const el = document.getElementById('watchLaterCount');
   if(el) el.textContent = state.watchLater.size;
+}
+
+function updateSeeLaterButtons(){
+  document.querySelectorAll('[data-see-later-key]').forEach(btn => {
+    const key = btn.getAttribute('data-see-later-key');
+    const active = state.seeLater.has(key);
+    btn.classList.toggle('is-see-later', active);
+    btn.innerHTML = seeLaterSVG(active);
+    btn.title = active ? 'Remove from See later' : 'Add to See later';
+  });
+  const el = document.getElementById('seeLaterCount');
+  if(el) el.textContent = state.seeLater.size;
 }
 
 function bindLegalLinks(){

@@ -169,6 +169,11 @@ function watchLaterSVG(active){
   return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 4.5a7.5 7.5 0 1 0 7.5 7.5A7.5 7.5 0 0 0 12 4.5Z" stroke="currentColor" stroke-width="1.7" ${active ? 'fill="currentColor"' : ''}/><path d="M12 8v4l2.5 1.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" ${active ? '' : 'stroke="currentColor"'}/></svg>`;
 }
 
+function seeLaterSVG(active){
+  // Reuse the same clock-ish icon as watch-later for visual consistency
+  return watchLaterSVG(active);
+}
+
 function ensureItemUrl(item){
   if(item.url) return item.url;
   if(!item.file) return '';

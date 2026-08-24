@@ -8,6 +8,8 @@ function getFiltered(tab){
     list = state.snapshots;
   } else if(tab === 'videos' && cat === '__watchlater__'){
     list = state.videos.filter(v => state.watchLater.has(favKey(v)));
+  } else if(tab === 'images' && cat === '__seelater__'){
+    list = [...state.images, ...state.snapshots].filter(i => state.seeLater && state.seeLater.has(favKey(i)));
   } else if(tab === 'videos' && cat === '__captioned__'){
     list = state.videos.filter(v => state.captionedPaths && state.captionedPaths.has(v.path));
   } else {
