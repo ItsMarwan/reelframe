@@ -202,11 +202,12 @@ function hideNsfwProgress(){
 
 /* ---------- full-library scan ---------- */
 
-function nsfwScanTargets(force, category){
+function nsfwScanTargets(force, category, includeVideos = state.nsfwIncludeVideos){
   const images = state.rawImages.filter(i => !i.pairRemote);
   const snapshots = state.snapshots.filter(s => s && s.type === 'image' && !s.pairRemote);
+  const videos = includeVideos ? state.rawVideos.filter(v => !v.pairRemote) : [];
 
-  let collection = [...images, ...snapshots];
+  let collection = [...images, ...snapshots, ...videos];
   if(category && category !== 'all'){
     collection = collection.filter(item => item.category === category);
   }
@@ -234,12 +235,35 @@ function getSelectedNsfwScanCategory(){
 function populateNsfwScanCategorySelect(){
   const select = getNsfwScanCategorySelectEl();
   if(!select) return;
-  const cats = (state.categoriesByTab && state.categoriesByTab.images) ? state.categoriesByTab.images : [];
-  const snapshotOption = 'Snapshots';
+  const imageCats = (state.categoriesByTab && state.categoriesByTab.images) ? state.categoriesByTab.images : [];
+  const videoCats = (state.categoriesByTab && state.categoriesByTab.videos) ? state.categoriesByTab.videos : [];
+  const cats = [...new Set([...imageCats, ...videoCats, 'Snapshots'])];
   const current = select.value || 'all';
-  const categoryOptions = [...new Set([...cats, snapshotOption])].map(cat => `<option value="${escapeAttr(cat)}">${escapeHtml(cat)}</option>`).join('');
-  select.innerHTML = `<option value="all">All photos</option>${categoryOptions}`;
-  select.value = (current === 'all' || [...cats, snapshotOption].includes(current)) ? current : 'all';
+  const categoryOptions = cats.map(cat => `<option value="${escapeAttr(cat)}">${escapeHtml(cat)}</option>`).join('');
+  select.innerHTML = `<option value="all">All media</option>${categoryOptions}`;
+  select.value = (current === 'all' || cats.includes(current)) ? current : 'all';
+}
+
+async function scanVideoItemForNsfw(item){
+  if(!item || item.type !== 'video') return null;
+  try{ await ensureVideoMeta(item); }
+  catch(e){ return null; }
+  const src = item.thumb || null;
+  if(!src) return null;
+  let img;
+  try{ img = await loadImageElement(src); }
+  catch(e){ return null; }
+  const result = await classifyImageElement(img);
+  const record = {
+    flagged: result.flagged,
+    score: Math.round(result.score * 1000) / 1000,
+    label: result.label,
+    size: item.size,
+    lastModified: item.lastModified,
+    scannedAt: Date.now(),
+  };
+  state.nsfwResults[nsfwCacheKey(item)] = record;
+  return record;
 }
 
 async function scanLibraryForNsfw(opts = {}){
@@ -250,8 +274,9 @@ async function scanLibraryForNsfw(opts = {}){
   // specific scope; otherwise use whatever category is picked in Settings.
   const category = opts.category || getSelectedNsfwScanCategory();
   const categoryLabel = category === 'all' ? '' : ` in “${category}”`;
+  const includeVideos = typeof opts.includeVideos === 'boolean' ? opts.includeVideos : state.nsfwIncludeVideos;
 
-  const targets = nsfwScanTargets(!!opts.force, category);
+  const targets = nsfwScanTargets(!!opts.force, category, includeVideos);
   if(!targets.length){
     toast(`Nothing new to scan${categoryLabel} — everything is already up to date.`);
     return;
@@ -267,14 +292,14 @@ async function scanLibraryForNsfw(opts = {}){
 
   nsfwScanState = { running: true, processed: 0, total: targets.length, cancel: false };
   updateNsfwScanUI();
-  if(!opts.quiet) toast(`Scanning ${targets.length} photo${targets.length === 1 ? '' : 's'}${categoryLabel} for NSFW content…`);
+  if(!opts.quiet) toast(`Scanning ${targets.length} item${targets.length === 1 ? '' : 's'}${categoryLabel} for NSFW content…`);
   showNsfwProgress(`Scanning for NSFW content${categoryLabel}…`, 0, targets.length);
 
   let flaggedCount = 0;
   for(const { item } of targets){
     if(nsfwScanState.cancel) break;
     try{
-      const record = await scanImageItemForNsfw(item);
+      const record = item.type === 'video' ? await scanVideoItemForNsfw(item) : await scanImageItemForNsfw(item);
       if(record && record.flagged) flaggedCount++;
     }catch(e){ /* skip whatever file wouldn't decode */ }
     nsfwScanState.processed++;
@@ -311,9 +336,9 @@ function cancelNsfwScan(){
    every launch and shouldn't nag. */
 async function maybeAutoScanNsfwOnStartup(){
   if(!state.nsfwFeatureUnlocked || !state.nsfwScanOnStartup) return;
-  const targets = nsfwScanTargets(false, 'all');
+  const targets = nsfwScanTargets(false, 'all', state.nsfwIncludeVideos);
   if(!targets.length) return;
-  await scanLibraryForNsfw({ quiet: true, category: 'all' });
+  await scanLibraryForNsfw({ quiet: true, category: 'all', includeVideos: state.nsfwIncludeVideos });
 }
 
 /* ---------- settings modal UI ---------- */

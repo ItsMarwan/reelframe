@@ -265,6 +265,7 @@ function headingFor(tab){
   if(cat === '__history__') return `History`;
   if(cat === '__snapshots__') return 'Snapshots';
   if(cat === '__watchlater__') return 'Watch later';
+  if(cat === '__seelater__') return 'See later';
   if(cat === '__captioned__') return 'Captioned';
   if(cat) return `${cat}`;
   return `All ${noun}`;
@@ -300,7 +301,7 @@ function renderFilterControls(){
 }
 
 function isTimeOrderedCategory(cat){
-  return cat === '__fav__' || cat === '__history__' || cat === '__snapshots__';
+  return cat === '__fav__' || cat === '__history__' || cat === '__snapshots__' || cat === '__seelater__';
 }
 
 let sortBeforeSpecial = { videos: null, images: null, music: null };

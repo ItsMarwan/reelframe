@@ -387,6 +387,11 @@ function loadNsfwBlurEnabled(){
   return raw === null ? true : raw === '1';
 }
 function saveNsfwBlurEnabled(){ localStorage.setItem(NSFW_BLUR_ENABLED_KEY, state.nsfwBlurEnabled ? '1' : '0'); }
+function loadNsfwIncludeVideos(){
+  const raw = localStorage.getItem(NSFW_INCLUDE_VIDEOS_KEY);
+  return raw === '1';
+}
+function saveNsfwIncludeVideos(){ localStorage.setItem(NSFW_INCLUDE_VIDEOS_KEY, state.nsfwIncludeVideos ? '1' : '0'); }
 function loadNsfwBlurMethod(){
   const raw = localStorage.getItem(NSFW_BLUR_METHOD_KEY);
   return ['blur', 'pixelate', 'blackbox'].includes(raw) ? raw : 'pixelate';

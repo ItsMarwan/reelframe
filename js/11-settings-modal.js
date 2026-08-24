@@ -474,6 +474,7 @@ async function exportLibraryData(){
     nsfwResults: state.nsfwResults,
     nsfwScanOnStartup: state.nsfwScanOnStartup,
     nsfwBlurEnabled: state.nsfwBlurEnabled,
+    nsfwIncludeVideos: state.nsfwIncludeVideos,
     nsfwBlurMethod: state.nsfwBlurMethod,
     websiteWallpaper: state.websiteWallpaper,
     exportedAt: new Date().toISOString(),
@@ -627,6 +628,10 @@ async function importLibraryData(file){
     if(typeof parsed.nsfwBlurEnabled === 'boolean'){
       state.nsfwBlurEnabled = parsed.nsfwBlurEnabled;
       saveNsfwBlurEnabled();
+    }
+    if(typeof parsed.nsfwIncludeVideos === 'boolean'){
+      state.nsfwIncludeVideos = parsed.nsfwIncludeVideos;
+      saveNsfwIncludeVideos();
     }
     if(['blur', 'pixelate', 'blackbox'].includes(parsed.nsfwBlurMethod)){
       state.nsfwBlurMethod = parsed.nsfwBlurMethod;
@@ -863,6 +868,7 @@ function bindSettingsModal(){
   const nsfwScanBtn = document.getElementById('nsfwScanBtn');
   const nsfwScanStartupToggle = document.getElementById('nsfwScanStartupToggle');
   const nsfwBlurToggle = document.getElementById('nsfwBlurToggle');
+  const nsfwIncludeVideosToggle = document.getElementById('nsfwIncludeVideosToggle');
   const nsfwBlurMethodSelect = document.getElementById('nsfwBlurMethodSelect');
   const nsfwRegionScanBtn = document.getElementById('nsfwRegionScanBtn');
   const nsfwRegionPauseBtn = document.getElementById('nsfwRegionPauseBtn');
@@ -872,6 +878,7 @@ function bindSettingsModal(){
   function refreshNsfwFeatureUI(){
     if(nsfwScanStartupToggle) nsfwScanStartupToggle.disabled = !state.nsfwFeatureUnlocked;
     if(nsfwBlurToggle) nsfwBlurToggle.disabled = !state.nsfwFeatureUnlocked;
+    if(nsfwIncludeVideosToggle) nsfwIncludeVideosToggle.disabled = !state.nsfwFeatureUnlocked;
     if(nsfwBlurMethodSelect) nsfwBlurMethodSelect.disabled = !state.nsfwFeatureUnlocked;
     if(nsfwRegionScanBtn) nsfwRegionScanBtn.disabled = !state.nsfwFeatureUnlocked;
     if(nsfwRegionPauseBtn) nsfwRegionPauseBtn.disabled = !state.nsfwFeatureUnlocked;
@@ -916,7 +923,14 @@ function bindSettingsModal(){
       state.nsfwBlurEnabled = nsfwBlurToggle.checked;
       saveNsfwBlurEnabled();
       refreshNsfwVisuals();
-      toast(state.nsfwBlurEnabled ? 'Flagged photos will be blurred and tagged' : 'Flagged photos will show normally');
+      toast(state.nsfwBlurEnabled ? 'Flagged media will be hidden and tagged' : 'Flagged media will show normally');
+    });
+  }
+  if(nsfwIncludeVideosToggle){
+    nsfwIncludeVideosToggle.addEventListener('change', () => {
+      state.nsfwIncludeVideos = nsfwIncludeVideosToggle.checked;
+      saveNsfwIncludeVideos();
+      toast(state.nsfwIncludeVideos ? 'Video thumbnails will be included in NSFW scans' : 'Video thumbnails are excluded from NSFW scans');
     });
   }
   if(nsfwBlurMethodSelect){
@@ -1083,6 +1097,7 @@ function bindSettingsModal(){
     if(installBtn) installBtn.hidden = !deferredInstallPrompt;
     if(nsfwScanStartupToggle) nsfwScanStartupToggle.checked = state.nsfwScanOnStartup;
     if(nsfwBlurToggle) nsfwBlurToggle.checked = state.nsfwBlurEnabled;
+    if(nsfwIncludeVideosToggle) nsfwIncludeVideosToggle.checked = state.nsfwIncludeVideos;
     if(nsfwBlurMethodSelect) nsfwBlurMethodSelect.value = state.nsfwBlurMethod || 'pixelate';
     updateNsfwScanUI();
     updateNsfwRegionScanUI();

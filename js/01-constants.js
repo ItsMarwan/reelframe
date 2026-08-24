@@ -50,6 +50,7 @@ const NSFW_FEATURE_UNLOCK_KEY = 'reelframe-nsfw-unlocked-v1';
 const NSFW_REDEEM_CODE = 'REELFRAME-NSFW-BETA';
 const NSFW_SCAN_ON_STARTUP_KEY = 'reelframe-nsfw-scan-startup-v1';
 const NSFW_BLUR_ENABLED_KEY = 'reelframe-nsfw-blur-enabled-v1';
+const NSFW_INCLUDE_VIDEOS_KEY = 'reelframe-nsfw-include-videos-v1';
 const NSFW_BLUR_METHOD_KEY = 'reelframe-nsfw-blur-method-v1';
 const NSFW_RESULTS_KEY = 'reelframe-nsfw-results-v1';
 const SEE_LATER_KEY = 'reelframe-see-later-v1';

@@ -51,6 +51,7 @@ function createPinCard(item, opts = {}){
   el._rfItem = item;
   el.innerHTML = `
     ${opts.forYou ? '<span class="pin-badge">For You</span>' : ''}
+    ${isSeeLater(item) ? '<span class="pin-badge">See later</span>' : ''}
     ${gated ? `<span class="nsfw-badge" title="Flagged as possible NSFW content">${nsfwWarningIconSVG()} NSFW</span>` : ''}
     <img alt="${escapeAttr(item.name)}" loading="lazy" decoding="async" fetchpriority="low">
     <div class="pin-overlay"><div class="pt">${escapeHtml(item.name)}</div></div>

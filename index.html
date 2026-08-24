@@ -1158,11 +1158,21 @@
       </div>
       <div class="setting-row">
         <div class="setting-text">
-          <div class="setting-title">Blur flagged photos</div>
-          <div class="setting-desc">When on, flagged photos show a warning badge and stay blurred until you tap to unblur them. When off, scan results are still kept, but nothing is blurred or tagged.</div>
+          <div class="setting-title">Hide flagged media</div>
+          <div class="setting-desc">When on, flagged photos and videos show a warning badge and stay hidden until you tap to unblur them. When off, scan results are kept, but nothing is blurred or tagged.</div>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="nsfwBlurToggle" disabled>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Include videos in NSFW scan</div>
+          <div class="setting-desc">Check thumbnails for videos too, so clips can be flagged alongside photos.</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="nsfwIncludeVideosToggle" disabled>
           <span class="toggle-slider"></span>
         </label>
       </div>
