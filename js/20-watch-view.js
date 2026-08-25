@@ -114,6 +114,11 @@ function openWatch(item, opts = {}){
   const gated = typeof shouldGateItem === 'function' && shouldGateItem(item);
   if(gated){
     player.removeAttribute('src');
+    // Without an explicit reset, some browsers keep displaying whatever
+    // frame the *previous* video was paused/playing on instead of clearing
+    // to blank — which is what let a flagged video's gate show the last
+    // video's last frame instead of this one's blurred poster.
+    player.load();
   } else if(item.pairRemote){
     player.removeAttribute('src');
     toast(`Loading "${item.name}" from the paired device…`);
@@ -153,15 +158,30 @@ function openWatch(item, opts = {}){
   const sideList = document.getElementById('watchSideList');
   const { autoplayCandidates, sideCards, forYouPaths } = buildAutoplayQueue(item);
   currentUpNext = autoplayCandidates;
+  renderWatchSideList(sideCards, forYouPaths);
+
+  if(watchParty.role === 'host' && partyIsActive() && watchParty.item !== item) broadcastPartyItem(item);
+  scrollMainTop();
+}
+
+/* Split out of openWatch so refreshNsfwVisuals (35-nsfw-scan.js) can
+   re-render this list after a scan finishes / the blur setting changes,
+   without re-running the whole open-video flow. Re-derives the same
+   sideCards/forYouPaths + currentUpNext each time it's called that way. */
+function renderWatchSideList(sideCards, forYouPaths){
+  const sideList = document.getElementById('watchSideList');
+  if(!sideList) return;
   sideList.innerHTML = '';
   sideCards.forEach((v, idx) => {
+    const gated = typeof shouldGateItem === 'function' && shouldGateItem(v);
     const row = document.createElement('div');
     row.className = 'wside-item';
     const isSuggested = forYouPaths.has(v.path);
     const isUpNext = idx < currentUpNext.length;
     row.innerHTML = `
-      <div class="wside-thumb">
+      <div class="wside-thumb ${gated ? 'nsfw-flagged' : ''}">
         ${isUpNext ? '<span class="wside-badge wside-badge-upnext">Up next</span>' : isWatchLater(v) ? '<span class="wside-badge">Later</span>' : isSuggested ? '<span class="wside-badge">For You</span>' : ''}
+        ${gated ? `<span class="wside-badge nsfw-badge-video" title="Flagged as possible NSFW content">${nsfwWarningIconSVG()} NSFW</span>` : ''}
         <div class="thumb-fallback" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-faint)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z" stroke="currentColor" stroke-width="1.5"/></svg>
         </div>
@@ -201,7 +221,13 @@ function openWatch(item, opts = {}){
       if(v.duration && d){ d.textContent = formatDuration(v.duration); d.hidden = false; }
     });
   });
+}
 
-  if(watchParty.role === 'host' && partyIsActive() && watchParty.item !== item) broadcastPartyItem(item);
-  scrollMainTop();
+/* Re-derives the same side list for the currently-open video, purely from
+   the existing item — used by refreshNsfwVisuals so re-scanning doesn't
+   need to touch currentUpNext or re-run the rest of openWatch. */
+function refreshWatchSideList(){
+  if(!state.currentVideo) return;
+  const { sideCards, forYouPaths } = buildAutoplayQueue(state.currentVideo);
+  renderWatchSideList(sideCards, forYouPaths);
 }

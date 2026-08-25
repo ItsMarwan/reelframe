@@ -383,14 +383,22 @@ function updateNsfwScanUI(){
 }
 
 /* Re-renders whatever's currently visible so badges/blur reflect the latest
-   scan results — the active grid, and the focus-view gate if a flagged
-   photo happens to be open right now. */
+   scan results — the active grid, the focus-view gate if a flagged photo
+   happens to be open, the video watch gate, its related-videos side list,
+   and the home/discover rows (For You, Continue watching, Recently added) —
+   none of those last ones used to get touched here, so a scan finishing
+   while one was already on screen left it showing stale, unblurred cards. */
 function refreshNsfwVisuals(){
   if(state.tab === 'videos' || state.tab === 'images') renderActiveGrid();
   const focusView = document.getElementById('imageFocus');
   if(focusView && !focusView.hidden && state.currentImage) applyFocusNsfwGate(state.currentImage);
   const watchView = document.getElementById('videoWatch');
-  if(watchView && !watchView.hidden && state.currentVideo) applyWatchNsfwGate(state.currentVideo);
+  if(watchView && !watchView.hidden && state.currentVideo){
+    applyWatchNsfwGate(state.currentVideo);
+    if(typeof refreshWatchSideList === 'function') refreshWatchSideList();
+  }
+  if(typeof renderForYouRow === 'function') renderForYouRow();
+  if(typeof renderDiscoverSections === 'function') renderDiscoverSections();
 }
 
 /* ---------- focus-view gate (blur / pixelate / black-box + click-to-unblur) ---------- */

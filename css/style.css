@@ -2519,7 +2519,11 @@ img, video{
    in focus view — the grid itself has no per-card unblur, only the badge. */
 .pin-item.nsfw-flagged img,
 .vcard-thumb.nsfw-flagged img,
-.vcard-thumb.nsfw-flagged video{
+.vcard-thumb.nsfw-flagged video,
+.wside-thumb.nsfw-flagged img,
+.wside-thumb.nsfw-flagged video,
+.player-nextup-thumb.nsfw-flagged img,
+.player-nextup-thumb.nsfw-flagged video{
   filter: blur(18px) saturate(0.7);
   transform: scale(1.08); /* hides blurred edge fringing */
 }

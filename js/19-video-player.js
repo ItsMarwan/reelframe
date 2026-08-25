@@ -68,11 +68,13 @@ function showNextUpPrompt(mode = 'preview'){
   const picks = currentUpNext.slice(0, 2);
   cardsEl.innerHTML = '';
   picks.forEach((item) => {
+    const gated = typeof shouldGateItem === 'function' && shouldGateItem(item);
     const card = document.createElement('button');
     card.className = 'player-nextup-card';
     card.type = 'button';
     card.innerHTML = `
-      <div class="player-nextup-thumb" data-thumb-for="${escapeAttr(item.path)}">${watchedProgressHTML(item)}
+      <div class="player-nextup-thumb ${gated ? 'nsfw-flagged' : ''}" data-thumb-for="${escapeAttr(item.path)}">${watchedProgressHTML(item)}
+        ${gated ? `<span class="vcard-badge nsfw-badge-video" title="Flagged as possible NSFW content">${nsfwWarningIconSVG()} NSFW</span>` : ''}
         ${item.thumb
           ? `<img src="${item.thumb}" alt="${escapeAttr(item.name)}">`
           : `<div class="thumb-fallback" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-faint)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z" stroke="currentColor" stroke-width="1.5"/><path d="m21 8 -4 3 4 3V8Z" fill="currentColor"/></svg></div>`}

@@ -151,10 +151,12 @@ function renderDiscoverSections(){
     continueRow.innerHTML = '';
     bindDiscoverCarousel('continueWatchingRow', 'continueWatchingPrevBtn', 'continueWatchingNextBtn');
     continueItems.forEach(item => {
+      const gated = shouldGateItem(item);
       const card = document.createElement('div');
       card.className = 'vcard discover-card';
       card.innerHTML = `
-        <div class="vcard-thumb">
+        <div class="vcard-thumb ${gated ? 'nsfw-flagged' : ''}">
+          ${gated ? `<div class="vcard-badges"><span class="vcard-badge nsfw-badge-video" title="Flagged as possible NSFW content">${nsfwWarningIconSVG()} NSFW</span></div>` : ''}
           <div class="thumb-fallback">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z" stroke="currentColor" stroke-width="1.5"/><path d="m21 8 -4 3 4 3V8Z" fill="currentColor"/></svg>
           </div>
@@ -178,10 +180,12 @@ function renderDiscoverSections(){
     recentRow.innerHTML = '';
     bindDiscoverCarousel('recentlyAddedRow', 'recentlyAddedPrevBtn', 'recentlyAddedNextBtn');
     recentItems.forEach(item => {
+      const gated = shouldGateItem(item);
       const card = document.createElement('div');
       card.className = 'vcard discover-card';
       card.innerHTML = `
-        <div class="vcard-thumb">
+        <div class="vcard-thumb ${gated ? 'nsfw-flagged' : ''}">
+          ${gated ? `<div class="vcard-badges"><span class="vcard-badge nsfw-badge-video" title="Flagged as possible NSFW content">${nsfwWarningIconSVG()} NSFW</span></div>` : ''}
           <div class="thumb-fallback">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z" stroke="currentColor" stroke-width="1.5"/><path d="m21 8 -4 3 4 3V8Z" fill="currentColor"/></svg>
           </div>
