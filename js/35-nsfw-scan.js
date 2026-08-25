@@ -4,9 +4,14 @@
    ever leaves the browser: every classification runs against a local
    <img>/canvas element.
 
-   Scope: photos only — videos are never scanned (not even their thumbnail).
-   This keeps a scan fast and matches the Settings copy, which has always
-   said "flags photos".
+   Scope: photos by default, but videos can be included too (see the "Scan
+   media scope" setting) — when they are, each video's thumbnail (generated
+   the same way the grid thumbnails are, and cached alongside them) is what
+   actually gets classified, since there's no cheap way to classify motion
+   video directly. A video never gets flagged/gated until it has a thumbnail
+   to check, so the very first scan after a fresh library scan may skip a
+   few videos whose thumbnail hasn't been generated yet — a second scan run
+   picks those up once thumbnails exist.
 
    Model download + caching: the first time a scan runs, nsfwjs.load() pulls
    the model from its CDN, which can take a moment on a slow connection — the
@@ -254,7 +259,9 @@ async function scanVideoItemForNsfw(item){
   let img;
   try{ img = await loadImageElement(src); }
   catch(e){ return null; }
-  const result = await classifyImageElement(img);
+  let result;
+  try{ result = await classifyImageElement(img); }
+  catch(e){ return null; } // e.g. a 0x0 decoded thumbnail — skip rather than abort the whole scan
   const record = {
     flagged: result.flagged,
     score: Math.round(result.score * 1000) / 1000,

@@ -5,34 +5,41 @@
 /* Cheap first pass — walks the tree counting files that match a supported
    extension, without ever calling getFile() (which is the expensive part).
    Used only to know the total up front so the loading screen can show real
-   "X of Y" progress instead of a bar that never moves. */
-async function countScanEntries(rootHandle, excludedPaths){
+   "X of Y" progress instead of a bar that never moves.
+
+   NOTE: this always walks the *entire* tree, excluded folders included.
+   Exclusion is applied afterwards, as a display-time filter (see
+   applyExclusions() in 03-storage.js) rather than by skipping folders
+   during the scan itself. Skipping them here used to mean an excluded
+   folder's files never made it into state.rawVideos/rawImages/rawAudio at
+   all, which in turn meant the folder itself never showed up in "Manage
+   folders" once unchecked (buildFolderTree() reads from those raw lists)
+   — there was no way to see it again to re-enable it. Walking everything
+   and filtering afterward keeps that folder visible and toggleable. */
+async function countScanEntries(rootHandle){
   let count = 0;
-  async function walk(dirHandle, pathParts){
+  async function walk(dirHandle){
     for await (const [name, handle] of dirHandle.entries()){
       if(name.startsWith('.')) continue;
       if(handle.kind === 'directory'){
-        const nextPath = [...pathParts, name].join('/');
-        if(excludedPaths && excludedPaths.has(nextPath)) continue;
-        await walk(handle, [...pathParts, name]);
+        await walk(handle);
       } else if(handle.kind === 'file'){
-        if(pathParts.length === 0 && excludedPaths && excludedPaths.has(UNCATEGORIZED)) continue;
         const ext = extOf(name);
         if(VIDEO_EXT.includes(ext) || IMAGE_EXT.includes(ext) || AUDIO_EXT.includes(ext)) count++;
       }
     }
   }
-  await walk(rootHandle, []);
+  await walk(rootHandle);
   return count;
 }
 
-async function scanDirectory(rootHandle, onProgress, excludedPaths){
+async function scanDirectory(rootHandle, onProgress){
   const videos = [];
   const images = [];
   const audio = [];
 
   if(onProgress) onProgress({ phase: 'counting' });
-  const total = onProgress ? await countScanEntries(rootHandle, excludedPaths) : 0;
+  const total = onProgress ? await countScanEntries(rootHandle) : 0;
   if(onProgress) onProgress({ phase: 'reading', processed: 0, total, name: '' });
 
   let processed = 0;
@@ -42,12 +49,9 @@ async function scanDirectory(rootHandle, onProgress, excludedPaths){
     for await (const [name, handle] of dirHandle.entries()){
       if(name.startsWith('.')) continue;
       if(handle.kind === 'directory'){
-        const nextPath = [...pathParts, name].join('/');
-        if(excludedPaths && excludedPaths.has(nextPath)) continue; // excluded — don't even walk into it
         const nextTop = topCategory || name;
         await walk(handle, [...pathParts, name], nextTop);
       } else if(handle.kind === 'file'){
-        if(pathParts.length === 0 && excludedPaths && excludedPaths.has(UNCATEGORIZED)) continue;
         const ext = extOf(name);
         const isVideo = VIDEO_EXT.includes(ext);
         const isImage = IMAGE_EXT.includes(ext);

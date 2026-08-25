@@ -23,7 +23,7 @@ async function launchWithHandle(handle){
   showLoadingScreen(`Reading "${handle.name}"`);
   try{
     const excluded = loadExcluded(handle.name);
-    const { videos, images, audio } = await scanDirectory(handle, updateLoadingProgress, excluded);
+    const { videos, images, audio } = await scanDirectory(handle, updateLoadingProgress);
     await loadSnapshots();
     if(videos.length === 0 && images.length === 0 && audio.length === 0 && state.snapshots.length === 0){
       await hideLoadingScreen();
@@ -288,11 +288,18 @@ async function refreshLibrary(){
   const buttons = [document.getElementById('refreshLibraryBtn'), document.getElementById('mobileRefreshBtn')].filter(Boolean);
   buttons.forEach(b => { b.disabled = true; b.classList.add('refreshing'); });
   try{
-    const { videos, images, audio } = await scanDirectory(state.rootHandle, null, state.excluded);
+    const { videos, images, audio } = await scanDirectory(state.rootHandle, null);
     await loadSnapshots();
     state.rawVideos = mergeScannedItems(state.rawVideos, videos);
     state.rawImages = mergeScannedItems(state.rawImages, images);
     state.rawAudio = mergeScannedItems(state.rawAudio, audio);
+    // Reshuffle so "Random" sort actually looks different after a refresh —
+    // mergeScannedItems deliberately keeps the same item object (and thus
+    // the same _rand) for anything unchanged, so without this the grid
+    // order barely moved no matter how many times you hit refresh.
+    shuffleKeys(state.rawVideos);
+    shuffleKeys(state.rawImages);
+    shuffleKeys(state.rawAudio);
     applyExclusions();
     updateTotalCount();
     renderSidebar();

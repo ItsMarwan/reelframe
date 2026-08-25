@@ -363,9 +363,18 @@ function openFocus(item, opts = {}){
   focusImgEl.alt = item.name;
   focusImgEl.onclick = () => {
     // Don't let the zoom pop-out bypass a blur gate that hasn't been
-    // unblurred yet — the gate overlay/canvas already intercepts clicks in
-    // that case, but this covers the img element underneath too.
-    if(shouldGateItem(item)) return;
+    // unblurred yet. FIX: this used to check shouldGateItem(item) alone,
+    // which only reflects the scan result — it has no idea the person
+    // already clicked "Unblur" for this viewing. That meant a flagged
+    // photo could never be opened/zoomed at all, even right after
+    // revealing it, since the flag itself never goes away. Checking
+    // whether the wrap is currently in its "revealed" state (set by
+    // revealFocusNsfwGate, reset every time a new photo opens) is what
+    // the gate overlay/canvas already effectively do for their own
+    // clicks — this just brings the image element's click in line with it.
+    const wrap = document.getElementById('focusImgWrap');
+    const revealed = !!(wrap && wrap.classList.contains('nsfw-revealed'));
+    if(!revealed && shouldGateItem(item)) return;
     if(focusPreventClick){ focusPreventClick = false; return; }
     openImagePop(item);
   };

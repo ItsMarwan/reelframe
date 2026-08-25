@@ -1182,13 +1182,19 @@ video::-webkit-media-text-track-display{
 }
 .wside-badge-upnext{ background: rgba(85,185,171,.9); color:#06211e; }
 
-/* Small badge appearing on video cards when an item is in Watch Later */
-.vcard-badge{
+/* Badges appearing on video cards (Watch later / For You / NSFW). Wrapped in
+   a single flex column so multiple badges on the same card stack instead of
+   rendering on top of each other at the same absolute position. */
+.vcard-badges{
   position:absolute; top:6px; left:6px; z-index:2;
+  display:flex; flex-direction:column; align-items:flex-start; gap:4px;
+}
+.vcard-badge{
   background: rgba(85,185,171,.92); color:#06211e; font-size:10px; font-weight:700;
   letter-spacing:.03em; text-transform:uppercase; padding:2px 7px; border-radius:4px;
 }
 .vcard-badge[hidden]{ display:none; }
+.vcard-badge.for-you-badge{ background: rgba(230,196,90,.95); }
 .wside-meta{ min-width:0; margin-top:-1px; padding-top:0; }
 .wside-meta .wt{
   font-size:14px; font-weight:600; line-height:1.35; color: var(--text);
@@ -1815,8 +1821,14 @@ img, video{
 }
 .pin-item img{ width:100%; display:block; transition: transform .35s ease; }
 .pin-item:hover img{ transform: scale(1.035); }
+/* Badges appearing on photo cards (For You / See later / NSFW). Wrapped in
+   a single flex column so multiple badges on the same card stack instead of
+   rendering on top of each other at the same absolute position. */
+.pin-badges{
+  position:absolute; top:8px; left:8px; z-index:2;
+  display:flex; flex-direction:column; align-items:flex-start; gap:4px;
+}
 .pin-badge{
-  position:absolute; top:8px; left:8px; z-index:1;
   background: var(--teal); color:#08221e; font-size:10px; font-weight:700;
   letter-spacing:.03em; text-transform:uppercase;
   padding:2px 7px; border-radius:4px;
@@ -2492,7 +2504,10 @@ img, video{
   background: rgba(216,79,79,.92); color:#fff; font-size:10px; font-weight:700;
   letter-spacing:.03em; text-transform:uppercase; padding:2px 7px; border-radius:4px;
 }
-.pin-item .nsfw-badge{ position:absolute; top:6px; left:6px; z-index:2; }
+/* NSFW badge sits inside .pin-badges (or .vcard-badges) now, so it no
+   longer needs its own absolute position — that used to make it land
+   exactly on top of any other badge (For You / See later / Watch later)
+   on the same card instead of stacking alongside them. */
 .nsfw-badge-video{ background: rgba(216,79,79,.92) !important; }
 
 /* Grid thumbnails: flagged items stay pixelated (via a heavy blur, which

@@ -50,9 +50,11 @@ function createPinCard(item, opts = {}){
   el.className = `pin-item${gated ? ' nsfw-flagged' : ''}`;
   el._rfItem = item;
   el.innerHTML = `
-    ${opts.forYou ? '<span class="pin-badge">For You</span>' : ''}
-    ${isSeeLater(item) ? '<span class="pin-badge">See later</span>' : ''}
-    ${gated ? `<span class="nsfw-badge" title="Flagged as possible NSFW content">${nsfwWarningIconSVG()} NSFW</span>` : ''}
+    <div class="pin-badges">
+      ${opts.forYou ? '<span class="pin-badge">For You</span>' : ''}
+      ${isSeeLater(item) ? '<span class="pin-badge">See later</span>' : ''}
+      ${gated ? `<span class="nsfw-badge" title="Flagged as possible NSFW content">${nsfwWarningIconSVG()} NSFW</span>` : ''}
+    </div>
     <img alt="${escapeAttr(item.name)}" loading="lazy" decoding="async" fetchpriority="low">
     <div class="pin-overlay"><div class="pt">${escapeHtml(item.name)}</div></div>
     <button class="pin-fav ${isFav(item)?'is-fav':''}" data-fav-key="${favKey(item)}" title="Favorite">${heartSVG(isFav(item))}</button>

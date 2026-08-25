@@ -21,37 +21,53 @@ function ensureVideoMeta(item){
     return item._metaPromise;
   }
 
-  item._metaPromise = new Promise((resolve) => {
-    const src = ensureItemUrl(item);
-    if(!src){ resolve(item); return; }
-    const v = document.createElement('video');
-    v.muted = true; v.playsInline = true; v.preload = 'metadata';
-    v.src = src;
-    const cleanup = () => { v.src = ''; v.remove(); };
-    v.addEventListener('loadedmetadata', () => {
-      item.duration = v.duration;
-      const seekTo = Math.min(1, (v.duration || 1) * 0.12);
-      try{ v.currentTime = seekTo; }catch(e){ finish(); }
+  item._metaPromise = (async () => {
+    // Cache check first — a thumbnail (and duration) generated in a past
+    // session/refresh is remembered in IndexedDB keyed by path+lastModified,
+    // so an unchanged video never has to be re-seeked and redrawn just
+    // because the page reloaded or the library got refreshed.
+    try{
+      const cached = await loadThumbCache(item);
+      if(cached && cached.thumb){
+        item.thumb = cached.thumb;
+        if(cached.duration) item.duration = cached.duration;
+        return item;
+      }
+    }catch(e){ /* IDB unavailable — fall through and generate normally */ }
+
+    return new Promise((resolve) => {
+      const src = ensureItemUrl(item);
+      if(!src){ resolve(item); return; }
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.preload = 'metadata';
+      v.src = src;
+      const cleanup = () => { v.src = ''; v.remove(); };
+      v.addEventListener('loadedmetadata', () => {
+        item.duration = v.duration;
+        const seekTo = Math.min(1, (v.duration || 1) * 0.12);
+        try{ v.currentTime = seekTo; }catch(e){ finish(); }
+      });
+      v.addEventListener('seeked', finish);
+      v.addEventListener('error', () => { item._metaPromise = null; item.broken = true; resolve(item); });
+      function finish(){
+        try{
+          const canvas = document.createElement('canvas');
+          canvas.width = v.videoWidth || 320;
+          canvas.height = v.videoHeight || 180;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+          item.thumb = canvas.toDataURL('image/jpeg', 0.7);
+          saveThumbCache(item); // fire-and-forget — persist for next time
+        }catch(e){ /* cross-origin or decode issue — skip thumb */ }
+        cleanup();
+        resolve(item);
+      }
+      setTimeout(() => {
+        if(!item.thumb) item._metaPromise = null;
+        resolve(item);
+      }, 6000);
     });
-    v.addEventListener('seeked', finish);
-    v.addEventListener('error', () => { item._metaPromise = null; item.broken = true; resolve(item); });
-    function finish(){
-      try{
-        const canvas = document.createElement('canvas');
-        canvas.width = v.videoWidth || 320;
-        canvas.height = v.videoHeight || 180;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-        item.thumb = canvas.toDataURL('image/jpeg', 0.7);
-      }catch(e){ /* cross-origin or decode issue — skip thumb */ }
-      cleanup();
-      resolve(item);
-    }
-    setTimeout(() => {
-      if(!item.thumb) item._metaPromise = null;
-      resolve(item);
-    }, 6000);
-  });
+  })();
   return item._metaPromise;
 }
 
@@ -113,8 +129,10 @@ function appendVideoCards(count){
     card._rfItem = item;
     card.innerHTML = `
       <div class="vcard-thumb ${gated ? 'nsfw-flagged' : ''}">
-        ${isWatchLater(item)?'<span class="vcard-badge">Watch later</span>':''}
-        ${gated ? `<span class="vcard-badge nsfw-badge-video" title="Flagged as possible NSFW content">${nsfwWarningIconSVG()} NSFW</span>` : ''}
+        <div class="vcard-badges">
+          ${isWatchLater(item)?'<span class="vcard-badge">Watch later</span>':''}
+          ${gated ? `<span class="vcard-badge nsfw-badge-video" title="Flagged as possible NSFW content">${nsfwWarningIconSVG()} NSFW</span>` : ''}
+        </div>
         <div class="thumb-fallback">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z" stroke="currentColor" stroke-width="1.5"/><path d="m21 8 -4 3 4 3V8Z" fill="currentColor"/></svg>
         </div>

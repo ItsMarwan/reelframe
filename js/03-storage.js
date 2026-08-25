@@ -302,6 +302,22 @@ function clearWatchProgress(item){
   saveWatchProgress();
 }
 
+/* New — video thumbnail cache (persisted in IndexedDB, like captions).
+   Keyed by type+path+lastModified so a replaced file (different
+   lastModified) gets a freshly generated thumbnail instead of showing
+   stale/wrong content forever. This is what lets thumbnails survive a
+   page reload or a library refresh instead of being redrawn from the
+   video every single time. */
+function thumbStorageKey(item){ return `thumb:${item.type}:${item.path}:${item.lastModified || 0}`; }
+async function loadThumbCache(item){
+  try{ return await idbGet(thumbStorageKey(item)); }catch(e){ return null; }
+}
+async function saveThumbCache(item){
+  if(!item || !item.thumb) return;
+  try{ await idbSet(thumbStorageKey(item), { thumb: item.thumb, duration: item.duration || null }); }
+  catch(e){ /* non-fatal — thumb just gets regenerated next time */ }
+}
+
 function excludedStorageKey(rootName){ return `reelframe-excluded-${rootName}`; }
 function loadExcluded(rootName){
   try{ const raw = localStorage.getItem(excludedStorageKey(rootName)); return new Set(raw ? JSON.parse(raw) : []); }
@@ -389,7 +405,12 @@ function loadNsfwBlurEnabled(){
 function saveNsfwBlurEnabled(){ localStorage.setItem(NSFW_BLUR_ENABLED_KEY, state.nsfwBlurEnabled ? '1' : '0'); }
 function loadNsfwMediaScope(){
   const raw = localStorage.getItem(NSFW_MEDIA_SCOPE_KEY);
-  if(raw === 'photos' || raw === 'videos') return raw;
+  // FIX: this used to only recognize 'photos'/'videos' here and fall through
+  // to the legacy boolean for 'all', which was harmless on its own — but
+  // combined with the old saveNsfwIncludeVideos() (see below) it meant a
+  // "Videos only" scan scope could never actually stick. Recognizing all
+  // three real values here is part of that fix.
+  if(raw === 'all' || raw === 'photos' || raw === 'videos') return raw;
   const legacy = localStorage.getItem(NSFW_INCLUDE_VIDEOS_KEY);
   return legacy === '1' ? 'all' : 'photos';
 }
@@ -398,9 +419,16 @@ function loadNsfwIncludeVideos(){
   const scope = loadNsfwMediaScope();
   return scope === 'all' || scope === 'videos';
 }
+/* FIX: this used to *derive* state.nsfwMediaScope from the legacy boolean
+   (true -> 'all', false -> 'photos') and re-save it — so every caller that
+   picked the "Videos only" scope, then (as every caller did) immediately
+   called this too, had their choice silently collapsed into "All media"
+   before it ever reached storage. That's why picking "Videos only" behaved
+   like "All media" and there was no way to land on a videos-only scan.
+   This is now just a legacy-compat mirror: it writes the old boolean key
+   for anything still reading it, without touching the real scope, which
+   callers already set via state.nsfwMediaScope + saveNsfwMediaScope(). */
 function saveNsfwIncludeVideos(){
-  state.nsfwMediaScope = state.nsfwIncludeVideos ? 'all' : 'photos';
-  saveNsfwMediaScope();
   localStorage.setItem(NSFW_INCLUDE_VIDEOS_KEY, state.nsfwIncludeVideos ? '1' : '0');
 }
 function loadNsfwBlurMethod(){
