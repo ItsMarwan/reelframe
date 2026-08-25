@@ -487,6 +487,9 @@ function bakeFocusNsfwImage(item, method, boxes){
     const canvas = document.createElement('canvas');
     renderFocusNsfwCanvas(source, canvas, method, boxes);
     img.src = canvas.toDataURL('image/jpeg', 0.88);
+    // Only reveal #focusImg (see the nsfw-gated:not(.nsfw-baked) CSS rule)
+    // once it's actually holding the blurred pixels, never the real ones.
+    wrap.classList.add('nsfw-baked');
   };
   source.src = focusGateOriginalSrc;
 }
@@ -519,7 +522,7 @@ function applyFocusNsfwGate(item){
 
   if(!shouldGateItem(item)){
     gate.hidden = true;
-    wrap.classList.remove('nsfw-gated');
+    wrap.classList.remove('nsfw-gated', 'nsfw-baked');
     // In case this photo was baked earlier and the blur setting/scan result
     // changed mid-view, restore the real image rather than leaving it blurred.
     if(focusGateOriginalSrc) img.src = focusGateOriginalSrc;
@@ -527,6 +530,9 @@ function applyFocusNsfwGate(item){
   }
 
   wrap.classList.add('nsfw-gated');
+  // Hide #focusImg (still holding the real pixels, or about to) again until
+  // the new bake for this call lands — see bakeFocusNsfwImage.
+  wrap.classList.remove('nsfw-baked');
   gate.hidden = false;
 
   // Prefer the region scan (blurs just the flagged spots) when it's run for
@@ -650,14 +656,46 @@ function revealWatchNsfwGate(){
   player.removeAttribute('poster');
   // Triggered by the person's own click on Unblur, so this counts as a user
   // gesture — autoplay-with-sound restrictions won't block it.
-  const playPromise = player.play();
-  if(playPromise && typeof playPromise.then === 'function') playPromise.catch(() => {});
+  const startPlayback = () => {
+    const playPromise = player.play();
+    if(playPromise && typeof playPromise.then === 'function') playPromise.catch(() => {});
+  };
+  const item = state.currentVideo;
+  // openWatch withheld the real src entirely while gated (so the browser
+  // never had a chance to decode/show a real frame ahead of the poster) —
+  // load it for real now that the person has actually unblurred it.
+  if(item && !player.src){
+    if(item.pairRemote){
+      toast(`Loading "${item.name}" from the paired device…`);
+      ensureItemUrlAsync(item).then(src => {
+        if(state.currentVideo !== item) return;
+        player.src = src;
+        startPlayback();
+      }).catch(() => toast("Couldn't load that video from the paired device."));
+    } else {
+      player.src = ensureItemUrl(item);
+      startPlayback();
+    }
+  } else {
+    startPlayback();
+  }
 }
 
 function rehideWatchNsfwGate(){
   if(!state.currentVideo) return;
   const wrap = document.getElementById('playerWrap');
+  const player = document.getElementById('videoPlayer');
   if(wrap) wrap.classList.remove('nsfw-revealed');
+  // A <video> that's already played a real frame keeps showing that frame
+  // even after a new `poster` is set — poster only has an effect before
+  // any frame has been decoded. So drop the loaded src entirely; the next
+  // Unblur (revealWatchNsfwGate) reloads it from scratch, same as the
+  // initial gated open.
+  if(player){
+    player.pause();
+    player.removeAttribute('src');
+    player.load();
+  }
   applyWatchNsfwGate(state.currentVideo);
 }
 

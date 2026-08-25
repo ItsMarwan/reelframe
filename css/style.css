@@ -1093,6 +1093,10 @@ video::-webkit-media-text-track-display{
 .icon-toggle-btn .icon-spinner{ display:none; }
 .icon-toggle-btn.generating .icon-cc{ display:none; }
 .icon-toggle-btn.generating .icon-spinner{ display:block; animation: iconSpin .9s linear infinite; }
+/* Photo focus view only — match the pill-rounded Favorite/Share/See later
+   buttons it sits next to. The video watch view's icon-button row (CC,
+   watch later, subtitles, share) intentionally stays square, untouched. */
+#focusShareLinkBtn{ border-radius:50%; }
 @keyframes iconSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
 
 /* Related videos — a side column next to the player, collapsible via the
@@ -2522,6 +2526,11 @@ img, video{
 
 .focus-img-wrap{ position:relative; }
 .focus-img-wrap #focusImg{ display:block; }
+/* While a flagged photo is gated but the blurred/pixelated bake hasn't
+   landed in #focusImg yet, keep the (still-real) pixels hidden instead of
+   letting them paint for that split second — .nsfw-baked is added the
+   moment the blurred version is actually in the <img>, see 35-nsfw-scan.js. */
+.focus-img-wrap.nsfw-gated:not(.nsfw-baked) #focusImg{ visibility:hidden; }
 #focusNsfwCanvas{
   position:absolute; inset:0; width:100%; height:100%;
   object-fit:contain; border-radius: var(--radius-lg);
@@ -2549,3 +2558,14 @@ img, video{
    z-index:6) so it actually sits on top instead of getting buried under them. */
 #watchNsfwGate{ z-index:20; }
 #watchRehideBtn{ z-index:20; }
+/* While a flagged video is gated, show only the blurred-thumbnail poster +
+   the gate/Unblur button — none of the actual player chrome (scrub bar,
+   play/pause, skip flashes, next-up card, click-to-play catcher). Unblur
+   reveals normal playback + controls again (nsfw-gated is removed then). */
+.video-player-wrap.nsfw-gated .player-click-catcher,
+.video-player-wrap.nsfw-gated .player-controls,
+.video-player-wrap.nsfw-gated .player-center-overlay,
+.video-player-wrap.nsfw-gated .player-skip-flash,
+.video-player-wrap.nsfw-gated .player-nextup{
+  display:none !important;
+}

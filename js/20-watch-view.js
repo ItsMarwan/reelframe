@@ -106,18 +106,25 @@ function openWatch(item, opts = {}){
   updateCaptionButtonUI();
   // Flagged videos don't autoplay — applyWatchNsfwGate below shows a blurred
   // poster + Unblur button instead, mirroring the photo focus gate.
+  // Also: don't even load the real video yet. Assigning `src` lets the
+  // browser decode and display a real frame on its own (ignoring/outracing
+  // the `poster` applyWatchNsfwGate bakes), which is what let the actual
+  // video show through instead of the blur. Loading is deferred until
+  // revealWatchNsfwGate() actually unblurs it.
   const gated = typeof shouldGateItem === 'function' && shouldGateItem(item);
-  if(item.pairRemote){
+  if(gated){
+    player.removeAttribute('src');
+  } else if(item.pairRemote){
     player.removeAttribute('src');
     toast(`Loading "${item.name}" from the paired device…`);
     ensureItemUrlAsync(item).then(src => {
       if(state.currentVideo !== item) return;
       player.src = src;
-      if(!gated) player.play().catch(()=>{});
+      player.play().catch(()=>{});
     }).catch(() => toast("Couldn't load that video from the paired device."));
   } else {
     player.src = ensureItemUrl(item);
-    if(!gated) player.play().catch(()=>{});
+    player.play().catch(()=>{});
   }
   if(typeof applyWatchNsfwGate === 'function') applyWatchNsfwGate(item);
 
