@@ -549,6 +549,12 @@ function initCustomPlayer(){
     debugPlayer('play-pause icons updated', { playing, paused: video.paused, ended: video.ended, readyState: video.readyState });
   }
   function togglePlay(){
+    // Flagged video, still gated — ignore play/pause requests entirely
+    // rather than letting a spacebar/button press slip playback past the
+    // blurred poster. (video.addEventListener('play', ...) below is the
+    // real backstop; this just avoids the pointless play()-then-immediately-
+    // paused() flicker for the most common trigger.)
+    if(typeof isWatchNsfwGated === 'function' && isWatchNsfwGated()) return;
     if('mediaSession' in navigator){
       navigator.mediaSession.setActionHandler('play', () => togglePlay());
       navigator.mediaSession.setActionHandler('pause', () => togglePlay());
@@ -648,6 +654,12 @@ function initCustomPlayer(){
   });
 
   video.addEventListener('play', () => {
+    // Backstop against every possible way playback could start while a
+    // flagged video's gate is still up (mediaSession controls, browser
+    // gesture handling, etc., not just this file's own buttons) — if it's
+    // still gated, immediately pause it back rather than trying to
+    // enumerate every path that could call .play().
+    if(typeof isWatchNsfwGated === 'function' && isWatchNsfwGated()){ video.pause(); return; }
     const inWatchView = !document.getElementById('videoWatch').hidden;
     if(!inWatchView && !miniPlayerActive){
       video.pause();

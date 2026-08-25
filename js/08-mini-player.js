@@ -129,7 +129,12 @@ function miniPlayerPlayItem(item){
   [...video.querySelectorAll('track')].forEach(t => t.remove());
   state.captionsEnabled = false;
   video.src = ensureItemUrl(item);
-  video.play().catch(() => {});
+  // Same gate as openWatch()/the main watch view — the mini player's "next"
+  // button was skipping this entirely and just playing straight through,
+  // even for a flagged video.
+  const gated = typeof shouldGateItem === 'function' && shouldGateItem(item);
+  if(!gated) video.play().catch(() => {});
+  if(typeof applyWatchNsfwGate === 'function') applyWatchNsfwGate(item);
   document.getElementById('miniPlayerTitle').textContent = item.name;
   applyWatchItemMeta(item);
   updateCaptionButtons();

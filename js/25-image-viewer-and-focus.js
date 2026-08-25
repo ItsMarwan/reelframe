@@ -516,6 +516,15 @@ function bindFocusImagePan(){
 
   wrap.addEventListener('pointerdown', (e) => {
     if(e.button !== 0) return;
+    // FIX: this used to unconditionally start a pan and call
+    // img.setPointerCapture() no matter what was under the pointer. The
+    // Unblur/"Blur again" buttons (and the whole gate overlay) live inside
+    // this same wrap, so pressing them redirected their pointerup/click to
+    // the captured <img> instead — the button visibly existed but clicking
+    // it silently did nothing. Bail out before starting a pan (and before
+    // capturing the pointer) whenever the press actually started on a
+    // button or the gate overlay itself.
+    if(e.target.closest('button, .nsfw-gate')) return;
     focusPanState = { startX: e.clientX, startY: e.clientY, curX: 0, curY: 0, pointerId: e.pointerId };
     wrap.classList.add('dragging');
     try{ img.setPointerCapture(e.pointerId); }catch(_){ }

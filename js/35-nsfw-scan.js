@@ -389,6 +389,8 @@ function refreshNsfwVisuals(){
   if(state.tab === 'videos' || state.tab === 'images') renderActiveGrid();
   const focusView = document.getElementById('imageFocus');
   if(focusView && !focusView.hidden && state.currentImage) applyFocusNsfwGate(state.currentImage);
+  const watchView = document.getElementById('videoWatch');
+  if(watchView && !watchView.hidden && state.currentVideo) applyWatchNsfwGate(state.currentVideo);
 }
 
 /* ---------- focus-view gate (blur / pixelate / black-box + click-to-unblur) ---------- */
@@ -457,56 +459,104 @@ function renderFocusNsfwCanvas(imgEl, canvasEl, method, boxes = []){
   }
 }
 
-/* Shows/hides the gate over #focusImg for the current photo.
-   Resets to "hidden behind the gate" every time it's called (i.e. every time
-   a photo is opened), so unblurring one photo never carries over to the
-   next. */
+/* Which photo the two vars below are cached for — lets applyFocusNsfwGate
+   tell "same photo, reapplying (rehide / a fresh scan came in)" apart from
+   "a different photo just opened", without needing a separate reset call
+   at every call site that opens a photo. */
+let focusGateItemRef = null;
+// The photo's real, unblurred URL — captured once per photo the first time
+// it's gated, and reused as the *source* for every future bake (reveal,
+// rehide, a blur-method change, etc.) so re-baking never reads back pixels
+// from the currently-visible (possibly already-blurred) <img>, which would
+// blur an already-blurred image instead of the real one.
+let focusGateOriginalSrc = null;
+
+/* Renders the flagged photo onto a throwaway (never-in-DOM) canvas and
+   hands back the blurred/pixelated/blackboxed result as a data URL. Runs
+   against a freshly-loaded Image sourced from focusGateOriginalSrc, never
+   against the visible #focusImg, so it's always working from real pixels. */
+function bakeFocusNsfwImage(item, method, boxes){
+  const img = document.getElementById('focusImg');
+  const wrap = document.getElementById('focusImgWrap');
+  if(!img || !wrap || !focusGateOriginalSrc) return;
+  const source = new Image();
+  source.onload = () => {
+    // Stale by the time this resolves (photo changed, or the gate was
+    // toggled off/revealed already) — don't stomp on whatever's showing now.
+    if(focusGateItemRef !== item || !wrap.classList.contains('nsfw-gated')) return;
+    const canvas = document.createElement('canvas');
+    renderFocusNsfwCanvas(source, canvas, method, boxes);
+    img.src = canvas.toDataURL('image/jpeg', 0.88);
+  };
+  source.src = focusGateOriginalSrc;
+}
+
+/* Shows/hides the gate for the current photo and — this is the important
+   part — actually bakes the blurred pixels into #focusImg itself instead of
+   floating a separate <canvas> on top of the real (unblurred) image. A
+   canvas-on-top overlay leaves the genuine, un-obscured image sitting right
+   there in the DOM underneath it; baking replaces the <img>'s own src with
+   the blurred version, so the real pixels simply aren't present while
+   gated. Resets to "hidden behind the gate" every time it's called (i.e.
+   every time a photo is opened), so unblurring one photo never carries over
+   to the next. */
 function applyFocusNsfwGate(item){
   const wrap = document.getElementById('focusImgWrap');
   const img = document.getElementById('focusImg');
-  const canvas = document.getElementById('focusNsfwCanvas');
   const gate = document.getElementById('focusNsfwGate');
-  if(!wrap || !img || !canvas || !gate) return;
+  const legacyCanvas = document.getElementById('focusNsfwCanvas'); // no longer drawn to — the image itself is baked now — kept hidden for old layouts that still reference it
+  if(!wrap || !img || !gate) return;
 
   const rehideBtn = document.getElementById('focusRehideBtn');
   wrap.classList.remove('nsfw-revealed');
   if(rehideBtn) rehideBtn.hidden = true;
+  if(legacyCanvas) legacyCanvas.hidden = true;
+
+  if(focusGateItemRef !== item){
+    focusGateItemRef = item;
+    focusGateOriginalSrc = null;
+  }
 
   if(!shouldGateItem(item)){
-    canvas.hidden = true;
     gate.hidden = true;
     wrap.classList.remove('nsfw-gated');
+    // In case this photo was baked earlier and the blur setting/scan result
+    // changed mid-view, restore the real image rather than leaving it blurred.
+    if(focusGateOriginalSrc) img.src = focusGateOriginalSrc;
     return;
   }
 
   wrap.classList.add('nsfw-gated');
   gate.hidden = false;
-  canvas.hidden = false;
 
   // Prefer the region scan (blurs just the flagged spots) when it's run for
   // this photo; otherwise fall back to the full-frame method the user chose.
   const regionRecord = (typeof getNsfwRegionRecord === 'function') ? getNsfwRegionRecord(item) : null;
   const hasFreshRegions = regionRecord && isRegionRecordFresh(item, regionRecord) && regionRecord.boxes.length;
   const method = getNsfwBlurMethod();
-  const draw = () => {
-    if(hasFreshRegions) renderFocusNsfwCanvas(img, canvas, method, regionRecord.boxes);
-    else renderFocusNsfwCanvas(img, canvas, method);
+  const boxes = hasFreshRegions ? regionRecord.boxes : [];
+
+  const startBake = () => {
+    if(!focusGateOriginalSrc) focusGateOriginalSrc = img.src;
+    bakeFocusNsfwImage(item, method, boxes);
   };
-  if(img.complete && img.naturalWidth) draw();
-  else img.addEventListener('load', draw, { once: true });
+  if(img.complete && img.naturalWidth) startBake();
+  else img.addEventListener('load', startBake, { once: true });
 }
 
 function revealFocusNsfwGate(){
   const wrap = document.getElementById('focusImgWrap');
-  const canvas = document.getElementById('focusNsfwCanvas');
   const gate = document.getElementById('focusNsfwGate');
   const rehideBtn = document.getElementById('focusRehideBtn');
-  if(!wrap || !canvas || !gate) return;
-  canvas.hidden = true;
+  const img = document.getElementById('focusImg');
+  if(!wrap || !gate || !img) return;
   gate.hidden = true;
   wrap.classList.remove('nsfw-gated');
   wrap.classList.add('nsfw-revealed');
   if(rehideBtn) rehideBtn.hidden = false;
+  // Swap the real photo back in — it's already cached from the original
+  // load, so this is instant, no network/decode wait.
+  if(focusGateOriginalSrc) img.src = focusGateOriginalSrc;
 }
 
 function rehideFocusNsfwGate(){
@@ -521,4 +571,99 @@ function bindNsfwFocusGate(){
   const rehideBtn = document.getElementById('focusRehideBtn');
   if(unblurBtn) unblurBtn.addEventListener('click', (e) => { e.stopPropagation(); revealFocusNsfwGate(); });
   if(rehideBtn) rehideBtn.addEventListener('click', (e) => { e.stopPropagation(); rehideFocusNsfwGate(); });
+}
+
+/* ---------- watch-view gate (video playback blur + click-to-unblur) ----------
+   Videos aren't classified directly (see the file header) — what gets
+   scanned is each video's thumbnail, generated/cached the exact same way
+   the grid thumbnails are (ensureVideoMeta: cached thumb if one exists,
+   otherwise generate + cache one). Once a video is flagged, this mirrors
+   the image focus gate as closely as a <video> allows: playback doesn't
+   start, a blurred/pixelated/blackboxed version of the thumbnail is shown
+   as the player's poster, and an Unblur button reveals + starts playback. */
+
+let watchGateItemRef = null;
+let watchGateBakedPoster = null;
+
+function isWatchNsfwGated(){
+  const wrap = document.getElementById('playerWrap');
+  return !!(wrap && wrap.classList.contains('nsfw-gated'));
+}
+
+/* Cache-or-generate the thumbnail (ensureVideoMeta), then render it through
+   the same blur/pixelate/blackbox path the photo gate uses. */
+async function bakeWatchNsfwPoster(item){
+  try{ await ensureVideoMeta(item); } catch(e){ return null; }
+  if(!item.thumb) return null;
+  let img;
+  try{ img = await loadImageElement(item.thumb); }
+  catch(e){ return null; }
+  const method = getNsfwBlurMethod();
+  const canvas = document.createElement('canvas');
+  renderFocusNsfwCanvas(img, canvas, method);
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+function applyWatchNsfwGate(item){
+  const wrap = document.getElementById('playerWrap');
+  const player = document.getElementById('videoPlayer');
+  const gate = document.getElementById('watchNsfwGate');
+  if(!wrap || !player || !gate) return;
+
+  const rehideBtn = document.getElementById('watchRehideBtn');
+  wrap.classList.remove('nsfw-revealed');
+  if(rehideBtn) rehideBtn.hidden = true;
+
+  if(watchGateItemRef !== item){
+    watchGateItemRef = item;
+    watchGateBakedPoster = null;
+  }
+
+  if(!shouldGateItem(item)){
+    gate.hidden = true;
+    wrap.classList.remove('nsfw-gated');
+    player.removeAttribute('poster');
+    return;
+  }
+
+  wrap.classList.add('nsfw-gated');
+  gate.hidden = false;
+  if(!player.paused) player.pause();
+
+  bakeWatchNsfwPoster(item).then(dataUrl => {
+    if(watchGateItemRef !== item || !dataUrl) return; // switched videos while this was baking, or no thumb to work with
+    watchGateBakedPoster = dataUrl;
+    if(wrap.classList.contains('nsfw-gated')) player.poster = dataUrl;
+  });
+}
+
+function revealWatchNsfwGate(){
+  const wrap = document.getElementById('playerWrap');
+  const gate = document.getElementById('watchNsfwGate');
+  const rehideBtn = document.getElementById('watchRehideBtn');
+  const player = document.getElementById('videoPlayer');
+  if(!wrap || !gate || !player) return;
+  gate.hidden = true;
+  wrap.classList.remove('nsfw-gated');
+  wrap.classList.add('nsfw-revealed');
+  if(rehideBtn) rehideBtn.hidden = false;
+  player.removeAttribute('poster');
+  // Triggered by the person's own click on Unblur, so this counts as a user
+  // gesture — autoplay-with-sound restrictions won't block it.
+  const playPromise = player.play();
+  if(playPromise && typeof playPromise.then === 'function') playPromise.catch(() => {});
+}
+
+function rehideWatchNsfwGate(){
+  if(!state.currentVideo) return;
+  const wrap = document.getElementById('playerWrap');
+  if(wrap) wrap.classList.remove('nsfw-revealed');
+  applyWatchNsfwGate(state.currentVideo);
+}
+
+function bindWatchNsfwGate(){
+  const unblurBtn = document.getElementById('watchUnblurBtn');
+  const rehideBtn = document.getElementById('watchRehideBtn');
+  if(unblurBtn) unblurBtn.addEventListener('click', (e) => { e.stopPropagation(); revealWatchNsfwGate(); });
+  if(rehideBtn) rehideBtn.addEventListener('click', (e) => { e.stopPropagation(); rehideWatchNsfwGate(); });
 }

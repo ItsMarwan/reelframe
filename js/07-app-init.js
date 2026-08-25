@@ -60,6 +60,7 @@ async function initAppUI(){
     bindViewTab();
     bindRefreshLibraryButton();
     bindNsfwFocusGate();
+    bindWatchNsfwGate();
     bindNsfwRegionScanButtons();
     consumePairParamIfPresent();
     window.addEventListener('popstate', syncViewFromURL);

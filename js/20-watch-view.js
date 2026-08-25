@@ -104,18 +104,22 @@ function openWatch(item, opts = {}){
   });
   state.captionsEnabled = false;
   updateCaptionButtonUI();
+  // Flagged videos don't autoplay — applyWatchNsfwGate below shows a blurred
+  // poster + Unblur button instead, mirroring the photo focus gate.
+  const gated = typeof shouldGateItem === 'function' && shouldGateItem(item);
   if(item.pairRemote){
     player.removeAttribute('src');
     toast(`Loading "${item.name}" from the paired device…`);
     ensureItemUrlAsync(item).then(src => {
       if(state.currentVideo !== item) return;
       player.src = src;
-      player.play().catch(()=>{});
+      if(!gated) player.play().catch(()=>{});
     }).catch(() => toast("Couldn't load that video from the paired device."));
   } else {
     player.src = ensureItemUrl(item);
-    player.play().catch(()=>{});
+    if(!gated) player.play().catch(()=>{});
   }
+  if(typeof applyWatchNsfwGate === 'function') applyWatchNsfwGate(item);
 
   loadCaptionsForItem(item).then(saved => {
     if(saved && state.currentVideo === item){
