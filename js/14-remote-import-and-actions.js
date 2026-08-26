@@ -451,7 +451,15 @@ function bindLockBehavior(){
   lockBound = true;
   startLockEnforcer();
   normalizeStoredLockPassword();
-  wireLockGateEvents();
+  // Ensure the lock gate element exists in the document and is wired
+  // up. This handles cases where the gate was removed or lives inside a
+  // stacking context that breaks interactivity; rebuilding ensures it's
+  // appended to document.body and event handlers are attached.
+  const gate = ensureLockGateExists();
+  if(gate){
+    gate.style.zIndex = '100001';
+    wireLockGateEvents();
+  }
 
   lockScreenNow = function lockNow(){
     if(state.lockEnabled && state.lockPassword && !isLockedNow){
@@ -518,6 +526,7 @@ function renderRemoteList(items, path){
   const wrap = document.getElementById('remoteHostList');
   const statusEl = document.getElementById('remoteHostStatus');
   const useBtn = document.getElementById('remoteHostUseFolderBtn');
+  const pwRowLocal = document.getElementById('remoteHostPasswordRow');
   if(!wrap) return;
   wrap.innerHTML = '';
   if(statusEl) statusEl.textContent = `Browsing: ${path || '/'} (${items.length} items)`;
@@ -539,7 +548,8 @@ function renderRemoteList(items, path){
       // If item is locked, require a password first (covers locked folders and files)
       if(it.locked){
         remoteHostState.pendingLockedPath = it.path;
-        document.getElementById('remoteHostPasswordRow').hidden = false;
+        if(pwRowLocal) { pwRowLocal.hidden = false; console.debug('[remote] showing password row for', it.path); }
+        else console.debug('[remote] password row element missing when trying to show for', it.path);
         return;
       }
       if(it.is_dir){
@@ -576,14 +586,15 @@ function renderRemoteList(items, path){
 function bindRemoteHostModal(){
   const backdrop = document.getElementById('remoteHostModalBackdrop');
   const openBtn = document.getElementById('openRemoteHostBtn');
+  const mobileOpenBtn = document.getElementById('mobileOpenRemoteHostBtn');
   const closeBtn = document.getElementById('remoteHostModalClose');
-  const connectBtn = document.getElementById('remoteHostConnectBtn');
+  let connectBtn = document.getElementById('remoteHostConnectBtn');
   const input = document.getElementById('remoteHostInput');
   const pwRow = document.getElementById('remoteHostPasswordRow');
   const pwInput = document.getElementById('remoteHostPasswordInput');
   const pwBtn = document.getElementById('remoteHostPasswordBtn');
   const useBtn = document.getElementById('remoteHostUseFolderBtn');
-  if(!backdrop || !openBtn || !closeBtn || !connectBtn || !input) return;
+  if(!backdrop || !openBtn || !closeBtn || !input) return;
   console.debug('[remote] bindRemoteHostModal: elements', { backdrop: !!backdrop, openBtn: !!openBtn, closeBtn: !!closeBtn, connectBtn: !!connectBtn, input: !!input });
   try{
     if(backdrop && backdrop.parentElement !== document.body){
@@ -591,6 +602,19 @@ function bindRemoteHostModal(){
       console.debug('[remote] moved remoteHostModalBackdrop to document.body');
     }
   }catch(e){ console.warn('[remote] could not move backdrop to body', e); }
+
+  // If the template somehow lost its Connect button, create one so the
+  // modal always has a usable Connect control.
+  if(!connectBtn){
+    try{
+      const inputWrap = input.parentElement || backdrop.querySelector('.share-code-row');
+      const btn = document.createElement('button');
+      btn.id = 'remoteHostConnectBtn'; btn.className = 'btn-ghost small'; btn.type = 'button'; btn.textContent = 'Connect';
+      if(inputWrap) inputWrap.appendChild(btn);
+      connectBtn = btn;
+      console.debug('[remote] created missing remoteHostConnectBtn dynamically');
+    }catch(e){ console.warn('[remote] could not create connect button', e); }
+  }
 
   const open = () => {
     try{
@@ -605,8 +629,15 @@ function bindRemoteHostModal(){
       console.debug('[remote] modal rect:', backdrop.getBoundingClientRect());
     }catch(e){ console.warn('[remote] open() error', e); }
   };
-  const close = () => { backdrop.hidden = true; remoteHostState.base = null; document.getElementById('remoteHostList').innerHTML = ''; document.getElementById('remoteHostPasswordRow').hidden = true; };
-  openBtn.addEventListener('click', () => { console.debug('[remote] open button clicked'); try{ if(typeof closeMobileShell === 'function') closeMobileShell(); }catch(e){ console.warn('[remote] closeMobileShell error', e); } open(); });
+  const close = () => {
+    backdrop.hidden = true;
+    remoteHostState.base = null;
+    const listEl = document.getElementById('remoteHostList'); if(listEl) listEl.innerHTML = '';
+    if(pwRow) { pwRow.hidden = true; console.debug('[remote] hiding password row on modal close'); }
+    else { const r = document.getElementById('remoteHostPasswordRow'); if(r) r.hidden = true; }
+  };
+  if(openBtn) openBtn.addEventListener('click', () => { console.debug('[remote] open button clicked'); try{ if(typeof closeMobileShell === 'function') closeMobileShell(); }catch(e){ console.warn('[remote] closeMobileShell error', e); } open(); });
+  if(mobileOpenBtn) mobileOpenBtn.addEventListener('click', () => { console.debug('[remote] mobile open button clicked'); try{ if(typeof closeMobileShell === 'function') closeMobileShell(); }catch(e){ console.warn('[remote] closeMobileShell error', e); } open(); });
   closeBtn.addEventListener('click', close);
   backdrop.addEventListener('click', (e) => { if(e.target === backdrop) close(); });
 
@@ -634,7 +665,8 @@ function bindRemoteHostModal(){
       if(!res.ok){ statusEl.textContent = 'Host rejected the password or connection failed.'; return; }
       const data = await res.json();
       if(data.ok){
-        document.getElementById('remoteHostPasswordRow').hidden = true;
+        if(pwRow){ pwRow.hidden = true; console.debug('[remote] password accepted, hiding row'); }
+        else { const r = document.getElementById('remoteHostPasswordRow'); if(r) r.hidden = true; }
         pwInput.value = '';
         const pending = remoteHostState.pendingLockedPath;
         remoteHostState.pendingLockedPath = null;

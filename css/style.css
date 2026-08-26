@@ -161,7 +161,7 @@ a, button:focus-visible, input:focus-visible, [tabindex]:focus-visible{
 }
 .lock-input{ margin-bottom: 18px; }
 
-#lockGate{ z-index: 200 !important; } /* always above every modal/overlay, including image pop */
+#lockGate{ z-index: 100001 !important; } /* always above every modal/overlay, including image pop */
 
 /* Custom-styled inline input (e.g. "Add from a URL") — same premium look as
    the lock-screen password field, sized to sit inline next to a button. */
@@ -445,7 +445,7 @@ a, button:focus-visible, input:focus-visible, [tabindex]:focus-visible{
 .mobile-actions-btn svg{ flex:0 0 auto; opacity:.85; }
 .mobile-actions-btn:hover, .mobile-actions-btn:active{ background: var(--surface-2); color: var(--text); }
 .mobile-sidebar-backdrop{
-  position:fixed; inset:0; z-index:35; background: rgba(7,8,10,.45); backdrop-filter: blur(2px);
+  position:fixed; inset:0; z-index:20 !important; background: rgba(7,8,10,.45); backdrop-filter: blur(2px);
 }
 .mobile-sidebar-backdrop[hidden]{ display:none; }
 .search-box{
@@ -1935,7 +1935,7 @@ img, video{
    Modal (manage folders)
    ========================================================================== */
 .modal-backdrop{
-  position:fixed; inset:0; z-index:70;
+  position:fixed; inset:0; z-index:100000 !important;
   background: rgba(8,9,12,.6);
   display:flex; align-items:center; justify-content:center;
   padding:24px;

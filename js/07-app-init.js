@@ -6,11 +6,13 @@
    Runs once at script load, outside any function, so it fires regardless
    of which screen (gate, lock, app) is showing. */
 let deferredInstallPrompt = null;
-if('serviceWorker' in navigator){
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* offline shell just won't be available */ });
-  });
-}
+// Service worker registration disabled to avoid hard caching during development.
+// If you want to enable the offline shell, uncomment the block below.
+// if('serviceWorker' in navigator){
+//   window.addEventListener('load', () => {
+//     navigator.serviceWorker.register('sw.js').catch(() => { /* offline shell just won't be available */ });
+//   });
+// }
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
@@ -51,7 +53,7 @@ async function initAppUI(){
     bindBulkDownloadButton();
     initCustomPlayer();
     initMusicPlayer();
-    bindLockBehavior();
+    bindLockBehavior(); 
     bindGlobalSearch();
     bindLegalLinks();
     bindFooterToggle();

@@ -781,6 +781,8 @@ function bindMobileShell(){
   if(!sidebar || !backdrop || !toggleBtn || !menuBtn || !menu) return;
 
   toggleBtn.addEventListener('click', () => {
+    // Don't open the mobile sidebar while a modal or the lock gate is visible
+    if(document.querySelector('.modal-backdrop:not([hidden])') || (document.getElementById('lockGate') && !document.getElementById('lockGate').hidden)) return;
     const open = !sidebar.classList.contains('open');
     sidebar.classList.toggle('open', open);
     document.body.classList.toggle('mobile-sidebar-open', open);
@@ -792,6 +794,8 @@ function bindMobileShell(){
 
   menuBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    // If a modal or the lock gate is visible, don't open the mobile menu (it'd add an overlay above the modal)
+    if(document.querySelector('.modal-backdrop:not([hidden])') || (document.getElementById('lockGate') && !document.getElementById('lockGate').hidden)) return;
     const open = menu.hidden;
     menu.hidden = !open;
     menuBtn.setAttribute('aria-expanded', String(open));
