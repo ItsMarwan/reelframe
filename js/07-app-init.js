@@ -42,6 +42,7 @@ async function initAppUI(){
     bindSettingsModal();
     bindShareControls();
     bindReceiveShareModal();
+    bindRemoteHostModal();
     bindUrlModal();
     bindSaveLocationModal();
     bindImagePopOverlay();

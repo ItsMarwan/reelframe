@@ -75,7 +75,13 @@ function createPinCard(item, opts = {}){
       if(isFirstWaiter) requestPairThumb(item.pairPath);
     }
   } else {
-    img.src = ensureItemUrl(item);
+    // Prefer a lightweight thumb if provided (remote host thumb URL),
+    // otherwise fall back to the full item URL.
+    const src = item.thumb || ensureItemUrl(item) || '';
+    if(src && /^https?:\/\//i.test(src)){
+      try{ img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'; }catch(e){}
+    }
+    img.src = src;
   }
 
   if(item.source === 'snapshot'){

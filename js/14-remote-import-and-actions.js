@@ -482,3 +482,282 @@ function bindLockBehavior(){
   if(state.lockEnabled && state.lockPassword) lockScreenNow();
   else scheduleInactivityLockReset();
 }
+
+/* ------------------------------------------------------------------
+   Connect to a Filebeam / Midnight Explorer host by IP/URL and browse
+   its files via the server's /api/list and /api/view endpoints.
+   Minimal: shows a modal, lets you navigate folders, open or download
+   files, and 'use' a folder (stores a link in localStorage).
+   ------------------------------------------------------------------ */
+const remoteHostState = { base: null, path: '', items: [], pendingLockedPath: null };
+
+function normalizeHostUrl(raw){
+  let s = (raw || '').trim();
+  if(!s) return null;
+  if(!/^https?:\/\//i.test(s)) s = 'http://' + s;
+  try{ const u = new URL(s); return u.origin; }catch(e){ return null; }
+}
+
+async function fetchRemoteList(path = ''){
+  const base = remoteHostState.base; if(!base) throw new Error('Not connected');
+  const url = `${base}/api/list${path ? '?path=' + encodeURIComponent(path) : ''}`;
+  const statusEl = document.getElementById('remoteHostStatus');
+  try{
+    const res = await fetch(url, { credentials: 'omit' });
+    if(res.status === 403){ if(statusEl) statusEl.textContent = 'Host denied access — the host needs to approve your device.'; return null; }
+    const data = await res.json();
+    return data.items || [];
+  }catch(err){
+    console.error('remote list failed', err);
+    if(statusEl) statusEl.textContent = 'Could not contact that host. Check the address and that the server is running.';
+    return null;
+  }
+}
+
+function renderRemoteList(items, path){
+  const wrap = document.getElementById('remoteHostList');
+  const statusEl = document.getElementById('remoteHostStatus');
+  const useBtn = document.getElementById('remoteHostUseFolderBtn');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  if(statusEl) statusEl.textContent = `Browsing: ${path || '/'} (${items.length} items)`;
+  remoteHostState.path = path || '';
+  useBtn.hidden = false;
+  items.forEach(it => {
+    const row = document.createElement('div');
+    row.className = 'setting-row';
+    row.style.display = 'flex'; row.style.justifyContent = 'space-between'; row.style.alignItems='center';
+    const left = document.createElement('div'); left.className='setting-text';
+    const title = document.createElement('div'); title.className='setting-title'; title.textContent = it.name || '—';
+    const desc = document.createElement('div'); desc.className='setting-desc'; desc.textContent = it.is_dir ? 'Folder' : `${it.type || 'file'} ${it.size ? '· ' + formatBytes(it.size) : ''}`;
+    if(it.locked) desc.textContent += ' · Locked';
+    left.appendChild(title); left.appendChild(desc);
+    const actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px';
+    const openBtn = document.createElement('button'); openBtn.className='btn-ghost small'; openBtn.type='button';
+    openBtn.textContent = it.is_dir ? 'Open' : 'Open';
+    openBtn.addEventListener('click', async () => {
+      // If item is locked, require a password first (covers locked folders and files)
+      if(it.locked){
+        remoteHostState.pendingLockedPath = it.path;
+        document.getElementById('remoteHostPasswordRow').hidden = false;
+        return;
+      }
+      if(it.is_dir){
+        const next = await fetchRemoteList(it.path);
+        if(next) renderRemoteList(next, it.path);
+        return;
+      }
+      // download file and open
+      try{
+        const res = await fetch(`${remoteHostState.base}/api/view?path=${encodeURIComponent(it.path)}`);
+        if(!res.ok){ if(statusEl) statusEl.textContent = `Could not fetch file (${res.status})`; return; }
+        const blob = await res.blob();
+        const meta = { name: it.name, itemType: it.type, size: it.size, mime: res.headers.get('content-type') };
+        openReceivedAsset(meta, blob);
+      }catch(e){ console.error(e); if(statusEl) statusEl.textContent = 'Failed to download file.'; }
+    });
+    actions.appendChild(openBtn);
+    const dl = document.createElement('button'); dl.className='btn-ghost small'; dl.type='button'; dl.textContent='Download';
+    dl.addEventListener('click', async () => {
+      try{
+        const res = await fetch(`${remoteHostState.base}/api/view?path=${encodeURIComponent(it.path)}`);
+        if(!res.ok){ if(statusEl) statusEl.textContent = `Could not fetch file (${res.status})`; return; }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = it.name || 'file'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+      }catch(e){ console.error(e); if(statusEl) statusEl.textContent = 'Failed to download file.'; }
+    });
+    actions.appendChild(dl);
+    row.appendChild(left); row.appendChild(actions);
+    wrap.appendChild(row);
+  });
+}
+
+function bindRemoteHostModal(){
+  const backdrop = document.getElementById('remoteHostModalBackdrop');
+  const openBtn = document.getElementById('openRemoteHostBtn');
+  const closeBtn = document.getElementById('remoteHostModalClose');
+  const connectBtn = document.getElementById('remoteHostConnectBtn');
+  const input = document.getElementById('remoteHostInput');
+  const pwRow = document.getElementById('remoteHostPasswordRow');
+  const pwInput = document.getElementById('remoteHostPasswordInput');
+  const pwBtn = document.getElementById('remoteHostPasswordBtn');
+  const useBtn = document.getElementById('remoteHostUseFolderBtn');
+  if(!backdrop || !openBtn || !closeBtn || !connectBtn || !input) return;
+  console.debug('[remote] bindRemoteHostModal: elements', { backdrop: !!backdrop, openBtn: !!openBtn, closeBtn: !!closeBtn, connectBtn: !!connectBtn, input: !!input });
+  try{
+    if(backdrop && backdrop.parentElement !== document.body){
+      document.body.appendChild(backdrop);
+      console.debug('[remote] moved remoteHostModalBackdrop to document.body');
+    }
+  }catch(e){ console.warn('[remote] could not move backdrop to body', e); }
+
+  const open = () => {
+    try{
+      backdrop.hidden = false;
+      backdrop.style.display = 'flex';
+      backdrop.style.zIndex = '99999';
+      document.getElementById('remoteHostStatus').textContent='';
+      input.value = '';
+      input.focus();
+      const cs = window.getComputedStyle(backdrop);
+      console.debug('[remote] modal opened, computedStyle:', { display: cs.display, visibility: cs.visibility, zIndex: cs.zIndex });
+      console.debug('[remote] modal rect:', backdrop.getBoundingClientRect());
+    }catch(e){ console.warn('[remote] open() error', e); }
+  };
+  const close = () => { backdrop.hidden = true; remoteHostState.base = null; document.getElementById('remoteHostList').innerHTML = ''; document.getElementById('remoteHostPasswordRow').hidden = true; };
+  openBtn.addEventListener('click', () => { console.debug('[remote] open button clicked'); try{ if(typeof closeMobileShell === 'function') closeMobileShell(); }catch(e){ console.warn('[remote] closeMobileShell error', e); } open(); });
+  closeBtn.addEventListener('click', close);
+  backdrop.addEventListener('click', (e) => { if(e.target === backdrop) close(); });
+
+  connectBtn.addEventListener('click', async () => {
+    const raw = input.value.trim();
+    const base = normalizeHostUrl(raw);
+    const statusEl = document.getElementById('remoteHostStatus');
+    console.debug('[remote] connect clicked, raw=', raw, 'base=', base);
+    if(!base){ if(statusEl) statusEl.textContent = 'Enter a valid host address.'; return; }
+    remoteHostState.base = base;
+    statusEl.textContent = 'Connecting…';
+    const items = await fetchRemoteList('');
+    if(items === null) return; // error shown by fetchRemoteList
+    renderRemoteList(items, '');
+  });
+
+  pwBtn.addEventListener('click', async () => {
+    const pw = pwInput.value || '';
+    const path = remoteHostState.pendingLockedPath;
+    if(!path) return;
+    const statusEl = document.getElementById('remoteHostStatus');
+    console.debug('[remote] checking password for', path);
+    try{
+      const res = await fetch(`${remoteHostState.base}/api/check_lock`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ path, password: pw }) });
+      if(!res.ok){ statusEl.textContent = 'Host rejected the password or connection failed.'; return; }
+      const data = await res.json();
+      if(data.ok){
+        document.getElementById('remoteHostPasswordRow').hidden = true;
+        pwInput.value = '';
+        const pending = remoteHostState.pendingLockedPath;
+        remoteHostState.pendingLockedPath = null;
+        try{
+          if(pending){
+            // Try to list the pending path — if it's a folder this will return items.
+            const items = await fetchRemoteList(pending);
+            if(items && items.length >= 0){
+              // If items is an array, render it (folder)
+              renderRemoteList(items, pending);
+            } else {
+              // Not a folder — try to fetch the file and open it
+              const res2 = await fetch(`${remoteHostState.base}/api/view?path=${encodeURIComponent(pending)}`);
+              if(res2 && res2.ok){
+                const blob = await res2.blob();
+                const meta = { name: (pending.split('/').pop() || 'file'), itemType: res2.headers.get('content-type') || '', size: blob.size, mime: res2.headers.get('content-type') };
+                openReceivedAsset(meta, blob);
+              } else {
+                // fallback to refreshing current listing
+                const items2 = await fetchRemoteList(remoteHostState.path);
+                if(items2) renderRemoteList(items2, remoteHostState.path);
+              }
+            }
+          } else {
+            const items = await fetchRemoteList(remoteHostState.path);
+            if(items) renderRemoteList(items, remoteHostState.path);
+          }
+        }catch(e){ console.warn('[remote] post-password fetch failed', e); }
+      }
+      else { statusEl.textContent = 'Password incorrect.'; }
+    }catch(e){ console.error(e); if(statusEl) statusEl.textContent = 'Password check failed.'; }
+  });
+
+  useBtn.addEventListener('click', () => {
+    if(!remoteHostState.base) return;
+    const savedBase = remoteHostState.base;
+    const savedPath = remoteHostState.path;
+    const payload = { base: savedBase, path: savedPath };
+    try{
+      localStorage.setItem('reelframe-linked-host', JSON.stringify(payload));
+      toast('Linked remote folder. Reopen Connect to browse it quickly.');
+    }catch(e){ console.warn('[remote] could not save linked host', e); }
+    // Close the modal to give clear feedback, but restore state for loading
+    try{ close(); }catch(e){}
+    // restore base/path for the loading operation
+    remoteHostState.base = savedBase;
+    remoteHostState.path = savedPath || '';
+    console.debug('[remote] loading linked host with base,path', savedBase, savedPath);
+    // Attempt to load the linked folder into the main UI as a paired-style library
+    (async () => {
+      try{
+        showLoadingScreen('Loading remote folder…');
+        const items = await fetchRemoteList(remoteHostState.path || '');
+        if(!items) { await hideLoadingScreen(); toast('Could not load remote folder.'); return; }
+        // Recursively walk the chosen folder and collect files (include subfolders)
+        const allFiles = [];
+        const q = [remoteHostState.path || ''];
+        while(q.length){
+          const cur = q.shift();
+          const list = await fetchRemoteList(cur);
+          if(!list) { throw new Error('Could not list ' + cur); }
+          for(const it of list){
+            if(it.is_dir){ q.push(it.path); continue; }
+            allFiles.push(it);
+          }
+        }
+        // Build local-style library items (non-paired) pointing at the host's API
+        const base = savedBase;
+        const localVideos = [];
+        const localImages = [];
+        // Normalize savedPath for relative calculations
+        const normSaved = (savedPath || '').replace(/\\/g, '/');
+        const savedRoot = normSaved.endsWith('/') || normSaved === '' ? normSaved : normSaved + '/';
+        allFiles.forEach(it => {
+          const fullUrl = `${base}/api/view?path=${encodeURIComponent(it.path)}`;
+          const itNorm = (it.path || '').replace(/\\/g, '/');
+          let rel = itNorm;
+          if(savedRoot && itNorm.toLowerCase().startsWith(savedRoot.toLowerCase())) rel = itNorm.slice(savedRoot.length);
+          const segs = rel.split('/').filter(Boolean);
+          const folderSegments = segs.slice(0, -1);
+          const category = folderSegments.length ? folderSegments[0] : UNCATEGORIZED;
+          const folderPath = folderSegments;
+          if(it.type === 'video'){
+            localVideos.push({ name: it.name, path: it.path, folderPath, category, type: 'video', handle: null, file: null, url: fullUrl, size: it.size || 0, lastModified: it.modified || Date.now(), ext: extOf(it.name), _rand: Math.random(), duration: null, thumb: null, broken: false });
+          } else if(it.type === 'image'){
+            const thumbUrl = `${base}/api/view?path=${encodeURIComponent(it.path)}&thumb=1`;
+            localImages.push({ name: it.name, path: it.path, folderPath, category, type: 'image', handle: null, file: null, url: fullUrl, size: it.size || 0, lastModified: it.modified || Date.now(), ext: extOf(it.name), _rand: Math.random(), thumb: thumbUrl, broken: false });
+          }
+        });
+        // Integrate into app state (mirror activatePairedLibrary's post-setup steps)
+        state.rootHandle = null;
+        state.rootName = `Remote: ${savedBase}${savedPath ? ' ' + savedPath : ''}`;
+        state.rawVideos = localVideos;
+        state.rawImages = localImages;
+        state.rawAudio = [];
+        state.snapshots = [];
+        state.excluded = new Set();
+        state.isDemo = false;
+        applyExclusions();
+        // Update UI
+        document.getElementById('rootName').textContent = state.rootName;
+        updateTotalCount();
+        renderSidebar();
+        // Jump to videos if we have videos, else images
+        if(localVideos.length > 0) setTab('videos', { skipRender:true });
+        else setTab('images', { skipRender:true });
+        switchViewsForTab();
+        clearUrlParams();
+        scrollMainTop();
+        renderActiveGrid();
+        toast('Linked remote folder loaded.');
+      }catch(e){ console.error('[remote] load linked host failed', e); toast('Failed to load linked host.'); }
+      finally{ try{ await hideLoadingScreen(); }catch(e){} }
+    })();
+  });
+}
+
+// bindRemoteHostModal is called from app init to ensure consistent startup
+// Also bind safely on DOMContentLoaded / now so the connect button works
+try{
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', () => { try{ bindRemoteHostModal(); }catch(e){ console.warn('[remote] bind failed on DOMContentLoaded', e); } });
+  } else {
+    try{ bindRemoteHostModal(); }catch(e){ console.warn('[remote] initial bind failed', e); }
+  }
+}catch(e){ console.warn('[remote] bind setup failed', e); }

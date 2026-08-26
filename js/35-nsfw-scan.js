@@ -147,6 +147,7 @@ function loadNsfwModel(){
 function loadImageElement(src){
   return new Promise((resolve, reject) => {
     const img = new Image();
+    try{ img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'; }catch(e){}
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error('Could not decode image'));
     img.src = src;

@@ -40,6 +40,7 @@ function ensureVideoMeta(item){
       if(!src){ resolve(item); return; }
       const v = document.createElement('video');
       v.muted = true; v.playsInline = true; v.preload = 'metadata';
+      try{ v.crossOrigin = 'anonymous'; v.referrerPolicy = 'no-referrer'; }catch(e){}
       v.src = src;
       const cleanup = () => { v.src = ''; v.remove(); };
       v.addEventListener('loadedmetadata', () => {

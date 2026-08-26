@@ -130,7 +130,11 @@ function openImagePop(item){
   const frame = document.getElementById('imagePopFrame');
   const img = document.getElementById('imagePopImg');
 
-  img.src = ensureItemUrl(item);
+  const popSrc = ensureItemUrl(item);
+  if(popSrc && /^https?:\/\//i.test(popSrc)){
+    try{ img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'; }catch(e){}
+  }
+  img.src = popSrc;
   img.alt = item.name;
   overlay.hidden = false;
   imageViewerState = { scale: 1, panX: 0, panY: 0, baseWidth: 0, baseHeight: 0, fitScale: 1 };
@@ -358,7 +362,11 @@ function openFocus(item, opts = {}){
     ensureItemUrlAsync(item).then(src => { if(state.currentImage === item) focusImgEl.src = src; })
       .catch(() => toast("Couldn't load that photo from the paired device."));
   } else {
-    focusImgEl.src = ensureItemUrl(item);
+    const src = ensureItemUrl(item);
+    if(src && /^https?:\/\//i.test(src)){
+      try{ focusImgEl.crossOrigin = 'anonymous'; focusImgEl.referrerPolicy = 'no-referrer'; }catch(e){}
+    }
+    focusImgEl.src = src;
   }
   focusImgEl.alt = item.name;
   focusImgEl.onclick = () => {

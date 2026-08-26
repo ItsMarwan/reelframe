@@ -305,6 +305,10 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v11m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
         <span>Receive</span>
       </button>
+      <button id="openRemoteHostBtn" class="btn-ghost" title="Connect to a host on your network" aria-label="Connect to host">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        <span>Connect</span>
+      </button>
       <button id="mobileMenuBtn" class="mobile-topbar-btn" type="button" aria-label="More actions" aria-haspopup="true" aria-expanded="false">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
       </button>
@@ -1389,8 +1393,7 @@
         </div>
       </div>
     </div>
-  </div>
-</div>
+
 
 <div id="partyModalBackdrop" class="modal-backdrop" hidden>
   <div class="modal">
@@ -1426,6 +1429,39 @@
       </div>
     </div>
   </div>
+
+      <!-- Remote host modal (moved to top-level) -->
+      <div id="remoteHostModalBackdrop" class="modal-backdrop" hidden>
+        <div class="modal">
+          <div class="modal-head">
+            <h3>Connect to network host</h3>
+            <button id="remoteHostModalClose" class="btn-icon" title="Close">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <p class="modal-sub">Enter the IP:PORT (or full URL) of a running Midnight Explorer / Filebeam host on your network.</p>
+          <div class="modal-list">
+            <div class="share-code-row">
+              <input id="remoteHostInput" class="share-code-input" type="text" placeholder="e.g. 192.168.1.42:5000 or http://192.168.1.42:5000">
+              <button id="remoteHostConnectBtn" class="btn-ghost small" type="button">Connect</button>
+            </div>
+            <div class="setting-row">
+              <div class="setting-text">
+                <div class="setting-desc" id="remoteHostStatus"></div>
+              </div>
+            </div>
+            <div id="remoteHostList" class="modal-list-plain" style="max-height:40vh;overflow:auto;margin-top:8px;"></div>
+            <div id="remoteHostPasswordRow" class="setting-row" hidden style="margin-top:8px;">
+              <input id="remoteHostPasswordInput" type="password" class="setting-input" placeholder="Folder password">
+              <button id="remoteHostPasswordBtn" class="btn-ghost small" type="button">Submit</button>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px;">
+              <button id="remoteHostUseFolderBtn" class="btn-primary small" type="button" hidden>Use this folder</button>
+              <button id="remoteHostDownloadBtn" class="btn-ghost small" type="button" hidden>Download selected</button>
+            </div>
+          </div>
+        </div>
+      </div>
 </div>
 
 <div id="pairModalBackdrop" class="modal-backdrop" hidden>
