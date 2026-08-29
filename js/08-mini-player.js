@@ -137,7 +137,7 @@ function miniPlayerPlayItem(item){
   if(typeof applyWatchNsfwGate === 'function') applyWatchNsfwGate(item);
   document.getElementById('miniPlayerTitle').textContent = item.name;
   applyWatchItemMeta(item);
-  updateCaptionButtons();
+  updateCaptionButtonUI();
   const { autoplayCandidates } = buildAutoplayQueue(item);
   currentUpNext = autoplayCandidates;
 }

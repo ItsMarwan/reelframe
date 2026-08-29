@@ -593,21 +593,15 @@
                   <span>Party</span>
                 </button>
                 <div class="watch-action-group">
-                  <button id="captionToggleBtn" class="icon-toggle-btn" title="Generate captions">
+                  <button id="captionToggleBtn" class="icon-toggle-btn" title="Captions — upload or generate">
                     <svg class="icon-cc" width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M9.6 10.3c-.5-.5-1.2-.8-1.9-.8-1.5 0-2.5 1.1-2.5 2.5s1 2.5 2.5 2.5c.7 0 1.4-.3 1.9-.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M17.3 10.3c-.5-.5-1.2-.8-1.9-.8-1.5 0-2.5 1.1-2.5 2.5s1 2.5 2.5 2.5c.7 0 1.4-.3 1.9-.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                     <svg class="icon-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" stroke-dasharray="34 20" stroke-linecap="round"/></svg>
                   </button>
                   <button id="watchLaterBtn" class="icon-toggle-btn" title="Watch later">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/><path d="M12 8v4l2.5 1.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   </button>
-                  <button id="subtitleOptionsBtn" class="icon-toggle-btn" title="Subtitle options — import or generate">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M6 15h4M12 15h6M6 11h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                  </button>
-                  <button id="shareVideoBtn" class="icon-toggle-btn" title="Share video">
+                  <button id="shareBtn" class="icon-toggle-btn" title="Share">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                  </button>
-                  <button id="shareLinkBtn" class="icon-toggle-btn" title="Share this item">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 12a4 4 0 0 0 5.66 0l2.34-2.34a4 4 0 1 0-5.66-5.66L10 5.34" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M15 12a4 4 0 0 0-5.66 0l-2.34 2.34a4 4 0 1 0 5.66 5.66L14 18.66" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
                   </button>
                 </div>
               </div>
@@ -703,9 +697,6 @@
                 </button>
                 <button id="focusShareBtn" class="fav-toggle" title="Share this photo">Share</button>
                 <button id="focusSeeLaterBtn" class="fav-toggle" title="See later">See later</button>
-                <button id="focusShareLinkBtn" class="icon-toggle-btn" title="Copy a direct link to this photo (while pairing)">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 12a4 4 0 0 0 5.66 0l2.34-2.34a4 4 0 1 0-5.66-5.66L10 5.34" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M15 12a4 4 0 0 0-5.66 0l-2.34 2.34a4 4 0 1 0 5.66 5.66L14 18.66" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-                </button>
                 <button id="focusSaveBtn" class="fav-toggle" hidden title="Save to your library">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
                   <span>Save</span>
@@ -722,9 +713,9 @@
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z" stroke="currentColor" stroke-width="1.6"/><path d="m21 8 -4 3 4 3V8Z" fill="currentColor"/></svg>
                   <span id="focusSourceLabel">From video</span>
                 </button>
-                <button id="focusLocateBtn" class="fav-toggle" hidden title="Copy this photo's location in your library">
+                <button id="focusLocateBtn" class="fav-toggle" hidden title="Copy this photo's path in your library — browsers can't open your file manager directly, so paste it into Explorer/Finder's 'go to' box to jump straight to it">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s6-5.5 6-10.5A6 6 0 0 0 6 10.5C6 15.5 12 21 12 21Z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10.2" r="2.1" stroke="currentColor" stroke-width="1.7"/></svg>
-                  <span>Locate</span>
+                  <span>Show</span>
                 </button>
               </div>
             </div>
@@ -1478,13 +1469,6 @@
       </button>
     </div>
     <p class="modal-sub">Share this code (or QR) with the other device so it can browse this library live. It streams over your local network automatically when possible, and over the internet otherwise.</p>
-    <div id="shareLinkChooser" class="modal-card" hidden style="margin-bottom:12px; padding:12px; border:1px solid var(--border-subtle); border-radius:12px; background:var(--panel-2);">
-      <div class="modal-sub" style="margin:0 0 8px; font-weight:600; color:var(--text-dim); padding:0;">Share link</div>
-      <div class="share-code-row" style="flex-wrap:wrap; gap:8px;">
-        <button id="shareLinkCopyBtn" class="btn-primary small" type="button">Copy normal link</button>
-        <button id="shareLinkCopyImageBtn" class="btn-ghost small" type="button">Copy image-only link</button>
-      </div>
-    </div>
     <div class="modal-list">
       <div class="setting-row">
         <div class="setting-text"><div class="setting-desc" id="pairStatusText">Setting up…</div></div>
@@ -1631,6 +1615,31 @@
       </div>
       <button id="subtitleGenerateBtn" class="btn-primary small" type="button" style="margin-top:10px;">Generate automatically</button>
       <div id="subtitleStatus" class="modal-sub" style="padding-left:2px;"></div>
+    </div>
+  </div>
+</div>
+<div id="shareChoiceModalBackdrop" class="modal-backdrop" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Share</h3>
+      <button id="shareChoiceModalClose" class="btn-icon" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <p class="modal-sub">Send the actual file to another device, or copy a link that opens it there directly.</p>
+    <div class="modal-list">
+      <button id="shareChoiceSendBtn" class="share-choice-btn" type="button">
+        <span class="share-choice-title">Send to a device</span>
+        <span class="share-choice-desc">Transfer the file itself over Wi-Fi or the internet — no link needed.</span>
+      </button>
+      <button id="shareChoiceLinkBtn" class="share-choice-btn" type="button">
+        <span class="share-choice-title">Copy direct link</span>
+        <span class="share-choice-desc">Copy a URL that opens this item on another device — only works while Pair devices is hosting.</span>
+      </button>
+      <div id="shareChoiceLinkOptions" class="share-choice-link-options" hidden>
+        <button id="shareChoiceLinkNormalBtn" class="btn-primary small" type="button">Copy normal link</button>
+        <button id="shareChoiceLinkImageBtn" class="btn-ghost small" type="button">Copy image-only link</button>
+      </div>
     </div>
   </div>
 </div>

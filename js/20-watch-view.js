@@ -83,8 +83,8 @@ function applyWatchItemMeta(item){
     watchSaveBtn.onclick = () => promptSaveItem(item, 'videos');
   }
 
-  const shareBtn = document.getElementById('shareVideoBtn');
-  if(shareBtn) shareBtn.onclick = () => openShareModal(item);
+  const shareBtn = document.getElementById('shareBtn');
+  if(shareBtn) shareBtn.onclick = () => openShareChoiceModal(item);
 
   if(typeof renderChapterTicks === 'function') renderChapterTicks(item);
 }
@@ -190,8 +190,7 @@ function renderWatchSideList(sideCards, forYouPaths){
       </div>
       <div class="wside-meta">
         <div class="wt">${escapeHtml(v.name)}</div>
-        <div class="wm-channel">${escapeHtml(v.category)}</div>
-        <div class="wm-sub">${formatDate(v.lastModified)}</div>
+        <div class="wm-sub">${escapeHtml(v.category)} · ${formatDate(v.lastModified)}</div>
       </div>
     `;
     row.querySelector('.vcard-fav').addEventListener('click', (e) => {

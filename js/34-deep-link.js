@@ -39,31 +39,57 @@ function copyDirectLink(imageOnly){
   copyTextToClipboard(url).then(ok => toast(ok ? 'Link copied' : url));
 }
 
-function toggleShareLinkChooser(show){
-  const chooser = document.getElementById('shareLinkChooser');
-  if(chooser) chooser.hidden = !show;
+/* ==========================================================================
+   Share modal — one button (video: shareBtn, photo: focusShareBtn) opens
+   this instead of two separate share buttons. "Send to a device" reuses
+   the existing P2P transfer (13-p2p-share.js); "Copy direct link" reveals
+   the normal/image-only link buttons that already existed as the old
+   shareLinkBtn/focusShareLinkBtn pair, now living inside one modal instead
+   of two extra icon buttons.
+   ========================================================================== */
+function openShareChoiceModal(item){
+  if(!item){ toast('Nothing open to share.'); return; }
+  state.shareChoiceItem = item;
+  const backdrop = document.getElementById('shareChoiceModalBackdrop');
+  if(!backdrop) return;
+  const imageLinkBtn = document.getElementById('shareChoiceLinkImageBtn');
+  if(imageLinkBtn) imageLinkBtn.hidden = item.type !== 'image';
+  toggleShareChoiceLinkOptions(false);
+  backdrop.hidden = false;
 }
 
-function bindDeepLinkButtons(){
-  const shareBtn = document.getElementById('shareLinkBtn');
-  // FIX: this used to bind to `focusShareBtn` — the same button the Focus
-  // view's own openFocus() wires up to openShareModal() (25-image-viewer-
-  // and-focus.js). Two independent listeners on one button meant every
-  // "Share" tap in Focus both opened the P2P share modal *and* silently
-  // flipped the (still-hidden) Pair modal's share-link chooser panel open
-  // in the background, so it showed up already expanded next time someone
-  // opened Pair devices. Focus now has its own dedicated link button,
-  // mirroring the Watch view's separate shareVideoBtn / shareLinkBtn pair.
-  const focusShareBtn = document.getElementById('focusShareLinkBtn');
-  const copyNormalBtn = document.getElementById('shareLinkCopyBtn');
-  const copyImageBtn = document.getElementById('shareLinkCopyImageBtn');
-
-  if(shareBtn) shareBtn.addEventListener('click', () => toggleShareLinkChooser(true));
-  if(focusShareBtn) focusShareBtn.addEventListener('click', () => toggleShareLinkChooser(true));
-  if(copyNormalBtn) copyNormalBtn.addEventListener('click', () => { copyDirectLink(false); toggleShareLinkChooser(false); });
-  if(copyImageBtn) copyImageBtn.addEventListener('click', () => { copyDirectLink(true); toggleShareLinkChooser(false); });
+function closeShareChoiceModal(){
+  const backdrop = document.getElementById('shareChoiceModalBackdrop');
+  if(backdrop) backdrop.hidden = true;
+  toggleShareChoiceLinkOptions(false);
 }
-document.addEventListener('DOMContentLoaded', bindDeepLinkButtons);
+
+function toggleShareChoiceLinkOptions(show){
+  const panel = document.getElementById('shareChoiceLinkOptions');
+  if(panel) panel.hidden = !show;
+}
+
+function bindShareChoiceModal(){
+  const backdrop = document.getElementById('shareChoiceModalBackdrop');
+  if(!backdrop) return;
+  const closeBtn = document.getElementById('shareChoiceModalClose');
+  const sendBtn = document.getElementById('shareChoiceSendBtn');
+  const linkBtn = document.getElementById('shareChoiceLinkBtn');
+  const normalLinkBtn = document.getElementById('shareChoiceLinkNormalBtn');
+  const imageLinkBtn = document.getElementById('shareChoiceLinkImageBtn');
+
+  if(closeBtn) closeBtn.addEventListener('click', closeShareChoiceModal);
+  backdrop.addEventListener('click', (e) => { if(e.target === backdrop) closeShareChoiceModal(); });
+  if(sendBtn) sendBtn.addEventListener('click', () => {
+    const item = state.shareChoiceItem;
+    closeShareChoiceModal();
+    if(item) openShareModal(item);
+  });
+  if(linkBtn) linkBtn.addEventListener('click', () => toggleShareChoiceLinkOptions(true));
+  if(normalLinkBtn) normalLinkBtn.addEventListener('click', () => { copyDirectLink(false); closeShareChoiceModal(); });
+  if(imageLinkBtn) imageLinkBtn.addEventListener('click', () => { copyDirectLink(true); closeShareChoiceModal(); });
+}
+document.addEventListener('DOMContentLoaded', bindShareChoiceModal);
 
 /* ---------- Bare-image render (no app chrome at all) ---------- */
 function ensureBareImageHost(){

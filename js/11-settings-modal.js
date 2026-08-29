@@ -1246,63 +1246,6 @@ function formatTimeForVTT(seconds){
   return `${hour}:${minute}:${second}.${mill}`;
 }
 
-function attachCaptionTrack(vttText, label='Captions', opts={}){
-  const { silent=false, show=true } = opts;
-  const player = document.getElementById('videoPlayer');
-  [...player.querySelectorAll('track')].forEach(t => t.remove());
-  const blob = new Blob([vttText], { type: 'text/vtt' });
-  const url = URL.createObjectURL(blob);
-  const track = document.createElement('track');
-  track.kind = 'captions';
-  track.label = label;
-  track.srclang = 'en';
-  track.src = url;
-  track.default = show;
-  player.append(track);
-  player.textTracks[0].mode = show ? 'showing' : 'hidden';
-  state.captionsEnabled = show;
-  updateCaptionButtons();
-  if(!silent) toast('Captions loaded');
-}
-
-function updateCaptionButtons(){
-  const btn = document.getElementById('captionToggleBtn');
-  if(!btn) return;
-  btn.classList.toggle('active', state.captionsEnabled);
-  btn.textContent = state.captionsEnabled ? 'CC On' : 'CC Off';
-}
-
-function toggleCaptions(){
-  const player = document.getElementById('videoPlayer');
-  const track = player.textTracks?.[0];
-  if(!track){
-    toast('No captions loaded. Upload a VTT file or generate captions first.');
-    return;
-  }
-  track.mode = track.mode === 'showing' ? 'hidden' : 'showing';
-  state.captionsEnabled = track.mode === 'showing';
-  updateCaptionButtons();
-  toast(state.captionsEnabled ? 'Captions enabled' : 'Captions hidden');
-}
-
-function loadCaptionFile(file){
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    attachCaptionTrack(reader.result, file.name || 'Imported captions');
-    if(state.currentVideo){
-      const item = state.currentVideo;
-      saveCaptionsForItem(item, reader.result).then(() => {
-        // Index immediately so an imported VTT is searchable right away,
-        // same as generated captions.
-        state.transcripts.set(item.path, parseVttCues(reader.result));
-        refreshCaptionedPaths();
-      });
-    }
-  };
-  reader.readAsText(file);
-}
-
 /* NOTE: blobToDataURL / exportLibraryData / importLibraryData are already
    defined near the top of this file (with support for snapshots, chapters,
    and watch progress). They used to be redeclared here with an older,

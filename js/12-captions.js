@@ -292,7 +292,7 @@ function updateCaptionButtonUI(){
 
   if(generating) btn.title = 'Generating captions…';
   else if(hasTrack) btn.title = state.captionsEnabled ? 'Turn off captions' : 'Turn on captions';
-  else btn.title = 'Generate captions';
+  else btn.title = 'Add captions — upload or generate';
 }
 
 async function handleCaptionButtonClick(){
@@ -319,5 +319,8 @@ async function handleCaptionButtonClick(){
     return;
   }
 
-  generateCaptions();
+  // No captions yet for this video — ask whether to upload a file or
+  // generate automatically, instead of assuming generate (that used to be
+  // the separate subtitleOptionsBtn's job; this button now covers both).
+  openSubtitlesModal();
 }

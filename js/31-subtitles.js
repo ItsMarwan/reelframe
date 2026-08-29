@@ -117,9 +117,7 @@ function bindSubtitlesModal(){
   const fileInput = document.getElementById('subtitleFileInput');
   const browseBtn = document.getElementById('subtitleBrowseBtn');
   const generateBtn = document.getElementById('subtitleGenerateBtn');
-  const openBtn = document.getElementById('subtitleOptionsBtn');
 
-  if(openBtn) openBtn.addEventListener('click', openSubtitlesModal);
   if(closeBtn) closeBtn.addEventListener('click', closeSubtitlesModal);
   backdrop.addEventListener('click', (e) => { if(e.target === backdrop) closeSubtitlesModal(); });
 

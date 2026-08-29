@@ -1093,10 +1093,6 @@ video::-webkit-media-text-track-display{
 .icon-toggle-btn .icon-spinner{ display:none; }
 .icon-toggle-btn.generating .icon-cc{ display:none; }
 .icon-toggle-btn.generating .icon-spinner{ display:block; animation: iconSpin .9s linear infinite; }
-/* Photo focus view only — match the pill-rounded Favorite/Share/See later
-   buttons it sits next to. The video watch view's icon-button row (CC,
-   watch later, subtitles, share) intentionally stays square, untouched. */
-#focusShareLinkBtn{ border-radius:50%; }
 @keyframes iconSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
 
 /* Related videos — a side column next to the player, collapsible via the
@@ -1124,8 +1120,9 @@ video::-webkit-media-text-track-display{
 .side-collapse-btn:hover{ color: var(--text-dim); }
 .side-collapse-btn svg{ flex:0 0 auto; transition: transform .18s ease; }
 .watch-side.collapsed .side-collapse-btn svg{ transform: rotate(180deg); }
-.watch-side.collapsed .side-collapse-label{ display:none; }
-.watch-side.collapsed .watch-side-list{ display:none; }
+.watch-side.collapsed .side-collapse-label{
+  display: inline; /* it's a section heading now, not a slim collapsed rail */
+}
 .watch-side-label{ font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color: var(--text-faint); margin-bottom:10px; }
 .watch-side-list{
   display:flex; flex-direction:column; gap:14px; overflow-x:visible; overflow-y:auto;
@@ -1136,17 +1133,6 @@ video::-webkit-media-text-track-display{
   display:flex; flex-direction:row; align-items:flex-start; gap:10px; cursor:pointer;
   padding:6px; border-radius:12px; transition: background .12s ease;
   width:100%;
-}
-.watch-side.collapsed{
-  flex: 1 1 100%;
-  width: 100%;
-  overflow: visible;
-  margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border-soft);
-}
-.watch-side.collapsed .side-collapse-label{
-  display: inline; /* it's a section heading now, not a slim collapsed rail */
 }
 .watch-side.collapsed .watch-side-list{
   display: grid;
@@ -1206,8 +1192,10 @@ video::-webkit-media-text-track-display{
   overflow-wrap: break-word; word-break: break-word;
 }
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.wside-meta .wm-channel{ font-size:12.5px; color: var(--text-dim); margin-top:5px; }
-.wside-meta .wm-sub{ font-size:12px; color: var(--text-faint); font-family: var(--mono-font); margin-top:2px; }
+/* Matches .vcard-meta on the normal grid cards — same size/weight/color,
+   so "up next" cards read as the same kind of metadata line, not a second
+   headline. */
+.wside-meta .wm-sub{ font-size:12px; color: var(--text-faint); font-family: var(--mono-font); margin-top:3px; }
 
 /* ==========================================================================
    "For You" shelf (personalized recommendations, toggleable in Settings)
@@ -2249,9 +2237,18 @@ img, video{
   .main{ padding: 18px 16px 100px; }
   .watch-layout{ flex-direction:column; gap:18px; }
   .watch-side{ width:100%; max-width:none; flex:0 0 auto; }
-  .watch-side.collapsed{ width:100%; }
-  .watch-side-list{ flex-direction:row; overflow-x:auto; overflow-y:visible; max-height:none; padding-bottom:6px; }
-  .wside-item{ width: 180px; flex:0 0 180px; }
+  /* Below this width the player never has room beside it for a docked
+     column — .watch-layout is already forced to a single stack above — so
+     the compress/enlarge toggle has nothing to toggle between. Hide it and
+     always show "Up next" the same (enlarged/full-width) way, regardless
+     of whatever state.sideCollapsed was left on from a wider viewport. */
+  .side-collapse-btn{ display:none; }
+  .watch-side .watch-side-list{
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap:14px; max-height:none; overflow:visible; padding:0;
+  }
+  .watch-side .wside-item{ flex-direction:column; width:100%; }
+  .watch-side .wside-thumb{ width:100%; flex:0 0 auto; }
 }
 
 @media (min-width: 861px){
@@ -2421,6 +2418,19 @@ img, video{
   background: rgba(230,162,76,.06);
   color: var(--text);
 }
+
+/* ---- Share choice modal (Send to a device / Copy direct link) ---- */
+.share-choice-btn{
+  display:flex; flex-direction:column; align-items:flex-start; gap:3px;
+  width:100%; text-align:left; box-sizing:border-box;
+  appearance:none; -webkit-appearance:none; font-family:inherit; cursor:pointer;
+  background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-md);
+  padding:12px 14px; transition: all .15s ease;
+}
+.share-choice-btn:hover{ border-color: var(--surface-3); background: var(--surface-2); }
+.share-choice-title{ font-size:14px; font-weight:600; color: var(--text); }
+.share-choice-desc{ font-size:12px; color: var(--text-faint); line-height:1.4; }
+.share-choice-link-options{ display:flex; flex-wrap:wrap; gap:8px; margin: 2px 2px 6px; }
 
 /* ---- Playlists ---- */
 .playlist-row{

@@ -413,7 +413,7 @@ function openFocus(item, opts = {}){
   }
   const shareBtn = document.getElementById('focusShareBtn');
   if(shareBtn){
-    shareBtn.onclick = () => openShareModal(item);
+    shareBtn.onclick = () => openShareChoiceModal(item);
   }
 
   const downloadBtn = document.getElementById('focusDownloadBtn');
