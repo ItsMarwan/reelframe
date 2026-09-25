@@ -158,7 +158,8 @@ async function classifyImageElement(imgEl){
   const predictions = await nsfwModel.classify(imgEl);
   const scores = {};
   predictions.forEach(p => { scores[p.className] = p.probability; });
-  const badScore = (scores.Porn || 0) + (scores.Hentai || 0) + (scores.Sexy || 0);
+  const enabledClasses = state.nsfwImageClasses instanceof Set ? state.nsfwImageClasses : new Set(DEFAULT_NSFW_IMAGE_CLASSES);
+  const badScore = predictions.filter(p => enabledClasses.has(p.className)).reduce((sum, p) => sum + (p.probability || 0), 0);
   const top = predictions.slice().sort((a, b) => b.probability - a.probability)[0];
   return {
     flagged: badScore >= NSFW_SCORE_THRESHOLD,
@@ -276,7 +277,6 @@ async function scanVideoItemForNsfw(item){
 }
 
 async function scanLibraryForNsfw(opts = {}){
-  if(!state.nsfwFeatureUnlocked){ toast('Redeem a code to unlock NSFW detection first.'); return; }
   if(nsfwScanState.running){ toast('A scan is already running.'); return; }
 
   // opts.category lets callers (e.g. the quiet startup auto-scan) force a
@@ -344,7 +344,7 @@ function cancelNsfwScan(){
    no toast unless something actually gets flagged, since this can run
    every launch and shouldn't nag. */
 async function maybeAutoScanNsfwOnStartup(){
-  if(!state.nsfwFeatureUnlocked || !state.nsfwScanOnStartup) return;
+  if(!state.nsfwScanOnStartup) return;
   const targets = nsfwScanTargets(false, 'all', state.nsfwMediaScope || (state.nsfwIncludeVideos ? 'all' : 'photos'));
   if(!targets.length) return;
   await scanLibraryForNsfw({ quiet: true, category: 'all', mediaScope: state.nsfwMediaScope || (state.nsfwIncludeVideos ? 'all' : 'photos') });
@@ -357,12 +357,9 @@ function updateNsfwScanUI(){
   const status = document.getElementById('nsfwScanStatus');
   const categorySelect = getNsfwScanCategorySelectEl();
   populateNsfwScanCategorySelect();
-  if(categorySelect) categorySelect.disabled = !state.nsfwFeatureUnlocked || nsfwScanState.running;
+  if(categorySelect) categorySelect.disabled = nsfwScanState.running;
   if(btn){
-    if(!state.nsfwFeatureUnlocked){
-      btn.disabled = true;
-      btn.textContent = 'Scan library';
-    } else if(nsfwScanState.running){
+    if(nsfwScanState.running){
       btn.disabled = false;
       btn.textContent = `Stop (${nsfwScanState.processed}/${nsfwScanState.total})`;
     } else {
@@ -371,9 +368,7 @@ function updateNsfwScanUI(){
     }
   }
   if(status){
-    if(!state.nsfwFeatureUnlocked){
-      status.textContent = '';
-    } else if(nsfwScanState.running){
+    if(nsfwScanState.running){
       status.textContent = `Scanning… ${nsfwScanState.processed} of ${nsfwScanState.total}`;
     } else {
       const total = Object.keys(state.nsfwResults).length;

@@ -53,11 +53,17 @@ const NSFW_BLUR_ENABLED_KEY = 'reelframe-nsfw-blur-enabled-v1';
 const NSFW_MEDIA_SCOPE_KEY = 'reelframe-nsfw-media-scope-v1';
 const NSFW_INCLUDE_VIDEOS_KEY = 'reelframe-nsfw-include-videos-v1';
 const NSFW_BLUR_METHOD_KEY = 'reelframe-nsfw-blur-method-v1';
+const NSFW_CLASS_CONFIG_KEY = 'reelframe-nsfw-class-config-v1';
 const NSFW_RESULTS_KEY = 'reelframe-nsfw-results-v1';
 const SEE_LATER_KEY = 'reelframe-see-later-v1';
 const SEE_LATER_CONSUMED_KEY = 'reelframe-see-later-consumed-v1';
 /* Combined Porn+Hentai+Sexy probability at/above which a photo gets flagged. */
 const NSFW_SCORE_THRESHOLD = 0.72;
+const DEFAULT_NSFW_IMAGE_CLASSES = ['Porn', 'Hentai', 'Sexy'];
+const DEFAULT_NSFW_REGION_CLASSES = [
+  'FEMALE_BREAST_EXPOSED', 'FEMALE_GENITALIA_EXPOSED', 'MALE_GENITALIA_EXPOSED',
+  'BUTTOCKS_EXPOSED', 'ANUS_EXPOSED', 'MALE_BREAST_EXPOSED',
+];
 // Where the downloaded nsfwjs model gets cached in this browser's IndexedDB
 // after its first download, so later scans (and later app launches) load it
 // straight from disk instead of re-downloading it from the CDN.
@@ -108,10 +114,7 @@ const NUDENET_CLASS_NAMES = [
 ];
 /* Only these get boxes drawn/blurred — covered/face/limb classes are skipped
    on purpose (not indecent, no reason to censor them). */
-const NUDENET_BLUR_CLASSES = new Set([
-  'FEMALE_BREAST_EXPOSED', 'FEMALE_GENITALIA_EXPOSED', 'MALE_GENITALIA_EXPOSED',
-  'BUTTOCKS_EXPOSED', 'ANUS_EXPOSED', 'MALE_BREAST_EXPOSED',
-]);
+const NUDENET_BLUR_CLASSES = new Set(DEFAULT_NSFW_REGION_CLASSES);
 
 /* New in this pass */
 const LOCK_TIMEOUT_KEY = 'reelframe-lock-timeout-min-v1';       // auto-lock after N minutes idle (0 = disabled)

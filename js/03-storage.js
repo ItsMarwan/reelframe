@@ -392,7 +392,10 @@ function toggleCategoryFav(cat){
   renderActiveGrid();
 }
 
-function loadNsfwUnlocked(){ return localStorage.getItem(NSFW_FEATURE_UNLOCK_KEY) === '1'; }
+function loadNsfwUnlocked(){
+  const raw = localStorage.getItem(NSFW_FEATURE_UNLOCK_KEY);
+  return raw === null ? true : raw === '1';
+}
 function saveNsfwUnlocked(){ localStorage.setItem(NSFW_FEATURE_UNLOCK_KEY, state.nsfwFeatureUnlocked ? '1' : '0'); }
 
 /* New — NSFW scan trigger + display settings */
@@ -436,6 +439,45 @@ function loadNsfwBlurMethod(){
   return ['blur', 'pixelate', 'blackbox'].includes(raw) ? raw : 'pixelate';
 }
 function saveNsfwBlurMethod(){ localStorage.setItem(NSFW_BLUR_METHOD_KEY, state.nsfwBlurMethod || 'pixelate'); }
+
+function loadNsfwImageClasses(){
+  const raw = localStorage.getItem(NSFW_CLASS_CONFIG_KEY);
+  const allowed = new Set(DEFAULT_NSFW_IMAGE_CLASSES);
+  if(!raw){ return new Set(DEFAULT_NSFW_IMAGE_CLASSES); }
+  try{
+    const parsed = JSON.parse(raw);
+    if(!parsed || typeof parsed !== 'object') return new Set(DEFAULT_NSFW_IMAGE_CLASSES);
+    if(Array.isArray(parsed.image)){
+      return new Set(parsed.image.filter(v => typeof v === 'string' && allowed.has(v)));
+    }
+    return new Set(DEFAULT_NSFW_IMAGE_CLASSES);
+  }catch(e){
+    return new Set(DEFAULT_NSFW_IMAGE_CLASSES);
+  }
+}
+function loadNsfwRegionClasses(){
+  const raw = localStorage.getItem(NSFW_CLASS_CONFIG_KEY);
+  const allowed = new Set(DEFAULT_NSFW_REGION_CLASSES);
+  if(!raw){ return new Set(DEFAULT_NSFW_REGION_CLASSES); }
+  try{
+    const parsed = JSON.parse(raw);
+    if(!parsed || typeof parsed !== 'object') return new Set(DEFAULT_NSFW_REGION_CLASSES);
+    if(Array.isArray(parsed.region)){
+      return new Set(parsed.region.filter(v => typeof v === 'string' && allowed.has(v)));
+    }
+    return new Set(DEFAULT_NSFW_REGION_CLASSES);
+  }catch(e){
+    return new Set(DEFAULT_NSFW_REGION_CLASSES);
+  }
+}
+function saveNsfwClasses(){
+  localStorage.setItem(NSFW_CLASS_CONFIG_KEY, JSON.stringify({
+    image: [...(state.nsfwImageClasses || new Set())],
+    region: [...(state.nsfwRegionClasses || new Set())],
+  }));
+}
+function saveNsfwImageClasses(){ saveNsfwClasses(); }
+function saveNsfwRegionClasses(){ saveNsfwClasses(); }
 
 /* New — NSFW scan result cache, keyed by favKey(item) ("type:path"). Kept in
    localStorage (like watchProgress) so it round-trips through the existing

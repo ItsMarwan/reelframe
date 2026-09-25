@@ -154,6 +154,7 @@ function decodeDetectorOutput(output, letterboxInfo){
   const get = (row, anchor) => transposed ? dataArr[anchor * rowLen + row] : dataArr[row * numAnchors + anchor];
 
   const { scale, padLeft, padTop, origW, origH } = letterboxInfo;
+  const enabledClasses = state.nsfwRegionClasses instanceof Set ? state.nsfwRegionClasses : new Set(DEFAULT_NSFW_REGION_CLASSES);
   const raw = [];
   for(let a = 0; a < numAnchors; a++){
     let bestCls = -1, bestScore = 0;
@@ -163,7 +164,7 @@ function decodeDetectorOutput(output, letterboxInfo){
     }
     if(bestScore < NSFW_REGION_SCORE_THRESHOLD) continue;
     const clsName = NUDENET_CLASS_NAMES[bestCls];
-    if(!NUDENET_BLUR_CLASSES.has(clsName)) continue;
+    if(!enabledClasses.has(clsName)) continue;
 
     const cx = get(0, a), cy = get(1, a), bw = get(2, a), bh = get(3, a);
     const x1 = (cx - bw / 2 - padLeft) / scale;
@@ -303,7 +304,6 @@ async function runNsfwRegionQueue(keys, startIndex, categoryLabel = ''){
 }
 
 async function startNsfwRegionScan(opts = {}){
-  if(!state.nsfwFeatureUnlocked){ toast('Redeem a code to unlock NSFW detection first.'); return; }
   if(nsfwRegionScanState.running){ toast('A region scan is already running.'); return; }
 
   const category = opts.category || getSelectedNsfwRegionScanCategory();
@@ -321,7 +321,6 @@ async function startNsfwRegionScan(opts = {}){
 }
 
 async function resumeNsfwRegionScan(){
-  if(!state.nsfwFeatureUnlocked){ toast('Redeem a code to unlock NSFW detection first.'); return; }
   if(nsfwRegionScanState.running){ toast('A region scan is already running.'); return; }
   const saved = loadNsfwRegionQueue();
   if(!saved || saved.index >= saved.keys.length){ toast('No paused region scan to resume — starting a new one.'); startNsfwRegionScan(); return; }
@@ -357,21 +356,19 @@ function updateNsfwRegionScanUI(){
   const paused = hasPausedNsfwRegionQueue();
 
   populateNsfwRegionScanCategorySelect();
-  if(categorySelect) categorySelect.disabled = !state.nsfwFeatureUnlocked || nsfwRegionScanState.running;
+  if(categorySelect) categorySelect.disabled = nsfwRegionScanState.running;
 
   if(scanBtn){
-    scanBtn.disabled = !state.nsfwFeatureUnlocked;
+    scanBtn.disabled = false;
     scanBtn.textContent = nsfwRegionScanState.running ? 'Scanning…' : (paused ? 'Start new scan' : 'Scan for regions');
   }
   if(pauseBtn){
     pauseBtn.hidden = !nsfwRegionScanState.running && !paused;
-    pauseBtn.disabled = !state.nsfwFeatureUnlocked;
+    pauseBtn.disabled = false;
     pauseBtn.textContent = nsfwRegionScanState.running ? 'Pause' : 'Resume';
   }
   if(status){
-    if(!state.nsfwFeatureUnlocked){
-      status.textContent = '';
-    } else if(nsfwRegionScanState.running){
+    if(nsfwRegionScanState.running){
       status.textContent = `Scanning… ${nsfwRegionScanState.processed} of ${nsfwRegionScanState.total}`;
     } else if(paused){
       const saved = loadNsfwRegionQueue();
@@ -389,7 +386,6 @@ function bindNsfwRegionScanButtons(){
   const pauseBtn = document.getElementById('nsfwRegionPauseBtn');
   if(scanBtn){
     scanBtn.addEventListener('click', () => {
-      if(!state.nsfwFeatureUnlocked){ toast('Redeem a code to unlock NSFW detection first.'); return; }
       startNsfwRegionScan();
     });
   }

@@ -1104,7 +1104,7 @@
                   BETA
                 </span>
               </div>
-              <div class="setting-desc">Scans your photos and flags any that may contain NSFW content. Still in development — requires a redeem code to enable.</div>
+              <div class="setting-desc">Scans your photos and flags any that may contain NSFW content. NSFW detection is available without a beta code.</div>
             </div>
           </div>
           <div class="setting-row">
@@ -1118,7 +1118,7 @@
           <div class="setting-row">
             <div class="setting-text">
               <div class="setting-title">Scan status</div>
-              <div class="setting-desc" id="nsfwScanStatus">Redeem a code below to enable NSFW detection.</div>
+              <div class="setting-desc" id="nsfwScanStatus">NSFW detection is enabled by default.</div>
             </div>
           </div>
         </div>
@@ -1147,7 +1147,7 @@
           <div class="setting-row">
             <div class="setting-text">
               <div class="setting-title">Region scan status</div>
-              <div class="setting-desc" id="nsfwRegionScanStatus">Redeem a code below to enable region detection.</div>
+              <div class="setting-desc" id="nsfwRegionScanStatus">Region detection is available without a beta code.</div>
             </div>
           </div>
         </div>
@@ -1196,8 +1196,15 @@
       </div>
       <div class="setting-row">
         <div class="setting-text">
+          <div class="setting-title">What counts as NSFW?</div>
+          <div class="setting-desc">Choose which whole-image labels and exposed-body classes should trigger a flag.</div>
+        </div>
+      </div>
+      <div id="nsfwClassList" class="nsfw-class-list" aria-live="polite"></div>
+      <div class="setting-row">
+        <div class="setting-text">
           <div class="setting-title">Redeem a code</div>
-          <div class="setting-desc">Have an early-access code? Enter it here to unlock beta features.</div>
+          <div class="setting-desc">Legacy code field; NSFW detection no longer requires a beta key.</div>
         </div>
         <div class="setting-actions setting-password-row">
           <form onsubmit="return false;">

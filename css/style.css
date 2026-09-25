@@ -1254,6 +1254,16 @@ video::-webkit-media-text-track-display{
 .nsfw-scan-col .setting-desc{ max-width:none; }
 .nsfw-scan-col .setting-actions{ width:100%; }
 .nsfw-scan-col .setting-actions select{ flex:1 1 auto; min-width:0; }
+.nsfw-class-list{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin: 4px 0 8px; }
+.nsfw-class-group{
+  background: var(--surface-2); border:1px solid var(--border-soft); border-radius:12px;
+  padding:10px 12px; display:flex; flex-direction:column; gap:8px;
+}
+.nsfw-class-group-title{ font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color: var(--text-faint); }
+.nsfw-class-option{ display:flex; align-items:center; gap:8px; color: var(--text); font-size:12.5px; cursor:pointer; }
+.nsfw-class-option input{ accent-color: var(--amber); }
+.nsfw-class-option span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.nsfw-class-option input:disabled + span{ opacity:.5; }
 
 .setting-input{
   background: var(--surface-2); border:1px solid var(--border);
