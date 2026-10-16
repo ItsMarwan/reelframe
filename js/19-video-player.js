@@ -2,11 +2,32 @@
    Custom video player
    ========================================================================== */
 let nextUpPromptState = { timer: null, visible: false, startedAt: 0, dismissed: false, mode: 'preview' };
+let playerScrubVideo = null;
+let playerScrubTimer = null;
 const PLAYER_DEBUG = true;
 const AUTOPLAY_PREVIEW_SECS = 10;
 const AUTOPLAY_PREVIEW_MIN_SECS = 1.5;
 const AUTOPLAY_FINAL_SECS = 10;
 const AUTOPLAY_TRANSITION_EPSILON_SECS = 0.18;
+
+function resetPlayerScrubPreview(){
+  const scrubPreview = document.getElementById('playerScrubPreview');
+  const scrubCanvas = document.getElementById('playerScrubCanvas');
+  const scrubTimeEl = document.getElementById('playerScrubTime');
+  const scrubCtx = scrubCanvas && scrubCanvas.getContext ? scrubCanvas.getContext('2d') : null;
+  if(scrubCtx){ scrubCtx.clearRect(0, 0, scrubCanvas.width, scrubCanvas.height); }
+  if(scrubPreview) scrubPreview.hidden = true;
+  if(scrubTimeEl) scrubTimeEl.textContent = '';
+  if(playerScrubTimer){ clearTimeout(playerScrubTimer); playerScrubTimer = null; }
+  if(playerScrubVideo){
+    delete playerScrubVideo.dataset.forSrc; // any in-flight "seeked" for the old video must not paint
+    try{
+      playerScrubVideo.pause();
+      playerScrubVideo.removeAttribute('src');
+      playerScrubVideo.load();
+    }catch(e){ /* ignore */ }
+  }
+}
 
 function previewWindowSecs(duration){
   if(!isFinite(duration) || duration <= 0) return AUTOPLAY_PREVIEW_SECS;
@@ -69,12 +90,15 @@ function showNextUpPrompt(mode = 'preview'){
   cardsEl.innerHTML = '';
   picks.forEach((item) => {
     const gated = typeof shouldGateItem === 'function' && shouldGateItem(item);
-    const card = document.createElement('button');
+    const card = document.createElement('div');
     card.className = 'player-nextup-card';
-    card.type = 'button';
+    card.setAttribute('role', 'button');
+    card.tabIndex = 0;
     card.innerHTML = `
       <div class="player-nextup-thumb ${gated ? 'nsfw-flagged' : ''}" data-thumb-for="${escapeAttr(item.path)}">${watchedProgressHTML(item)}
         ${gated ? `<span class="vcard-badge nsfw-badge-video" title="Flagged as possible NSFW content">${nsfwWarningIconSVG()} NSFW</span>` : ''}
+        <button class="vcard-fav ${isFav(item)?'is-fav':''}" data-fav-key="${favKey(item)}" title="Favorite">${heartSVG(isFav(item))}</button>
+        <button class="vcard-fav watch-later-btn ${isWatchLater(item)?'is-watch-later':''}" data-watch-later-key="${favKey(item)}" title="Watch later">${watchLaterSVG(isWatchLater(item))}</button>
         ${item.thumb
           ? `<img src="${item.thumb}" alt="${escapeAttr(item.name)}">`
           : `<div class="thumb-fallback" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-faint)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z" stroke="currentColor" stroke-width="1.5"/><path d="m21 8 -4 3 4 3V8Z" fill="currentColor"/></svg></div>`}
@@ -85,11 +109,29 @@ function showNextUpPrompt(mode = 'preview'){
       clearNextUpPrompt({ reset: true });
       openWatch(item);
     });
+    card.addEventListener('keydown', (e) => {
+      if(e.target === card && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); card.click(); }
+    });
+    const nextFavBtn = card.querySelector('.vcard-fav:not(.watch-later-btn)');
+    if(nextFavBtn) nextFavBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleFav(item);
+      nextFavBtn.classList.toggle('is-fav', isFav(item));
+      nextFavBtn.innerHTML = heartSVG(isFav(item));
+    });
+    const nextLaterBtn = card.querySelector('.watch-later-btn');
+    if(nextLaterBtn) nextLaterBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleWatchLater(item);
+      nextLaterBtn.classList.toggle('is-watch-later', isWatchLater(item));
+      nextLaterBtn.innerHTML = watchLaterSVG(isWatchLater(item));
+    });
     cardsEl.appendChild(card);
     ensureVideoMeta(item).then(() => {
       const box = cardsEl.querySelector(`[data-thumb-for="${escapeAttr(item.path)}"]`);
       if(!box || !item.thumb) return;
-      box.innerHTML = `<img src="${item.thumb}" alt="${escapeAttr(item.name)}">`;
+      const fb = box.querySelector('.thumb-fallback');
+      if(fb) fb.outerHTML = `<img src="${item.thumb}" alt="${escapeAttr(item.name)}">`;
     });
   });
 
@@ -762,23 +804,23 @@ function initCustomPlayer(){
   const scrubCanvas = document.getElementById('playerScrubCanvas');
   const scrubTimeEl = document.getElementById('playerScrubTime');
   const scrubCtx = scrubCanvas ? scrubCanvas.getContext('2d') : null;
-  let scrubVideo = null;
-  let scrubSeekTimer = null;
 
   function ensureScrubVideo(){
-    if(scrubVideo) return scrubVideo;
-    scrubVideo = document.createElement('video');
-    scrubVideo.muted = true;
-    scrubVideo.playsInline = true;
-    scrubVideo.preload = 'auto';
-    scrubVideo.style.display = 'none';
-    document.body.appendChild(scrubVideo);
-    scrubVideo.addEventListener('seeked', () => {
+    if(playerScrubVideo) return playerScrubVideo;
+    playerScrubVideo = document.createElement('video');
+    playerScrubVideo.muted = true;
+    playerScrubVideo.playsInline = true;
+    playerScrubVideo.preload = 'auto';
+    playerScrubVideo.style.display = 'none';
+    document.body.appendChild(playerScrubVideo);
+    playerScrubVideo.addEventListener('seeked', () => {
       if(!scrubCtx) return;
-      try{ scrubCtx.drawImage(scrubVideo, 0, 0, scrubCanvas.width, scrubCanvas.height); }
+      // Ignore a seek that finished for a video we've since moved away from.
+      if(!playerScrubVideo.dataset.forSrc || playerScrubVideo.dataset.forSrc !== playerScrubVideo.getAttribute('src')) return;
+      try{ scrubCtx.clearRect(0, 0, scrubCanvas.width, scrubCanvas.height); scrubCtx.drawImage(playerScrubVideo, 0, 0, scrubCanvas.width, scrubCanvas.height); }
       catch(e){ /* frame not ready — leave last drawn frame in place */ }
     });
-    return scrubVideo;
+    return playerScrubVideo;
   }
 
   function updateScrubPreview(clientX){
@@ -799,16 +841,27 @@ function initCustomPlayer(){
     left = Math.max(4, Math.min(left, rect.width - boxWidth - 4));
     scrubPreview.style.left = `${left}px`;
 
-    const src = ensureItemUrl(item);
+    const src = (typeof censorActiveUrl === 'function' && censorActiveUrl(item)) || ensureItemUrl(item);
     if(!src) return;
     const sv = ensureScrubVideo();
-    if(sv.src !== src) sv.src = src;
+    if(sv.getAttribute('src') !== src){
+      // New video: wipe the old frame right away instead of leaving it
+      // on the canvas until the first new frame has decoded.
+      if(scrubCtx) scrubCtx.clearRect(0, 0, scrubCanvas.width, scrubCanvas.height);
+      sv.dataset.forSrc = src;
+      sv.src = src;
+    }
 
-    clearTimeout(scrubSeekTimer);
-    scrubSeekTimer = setTimeout(() => {
+    clearTimeout(playerScrubTimer);
+    playerScrubTimer = setTimeout(() => {
       try{ sv.currentTime = time; }catch(e){ /* ignore — will retry on next move */ }
     }, 60);
   }
+
+  // Any time the main player switches source (next-up, autoplay, mini-player,
+  // party/pair changes — not only openWatch), drop the previous video's frame.
+  video.addEventListener('loadstart', resetPlayerScrubPreview);
+  video.addEventListener('emptied', resetPlayerScrubPreview);
 
   if(scrubPreview){
     progress.addEventListener('pointerenter', () => {

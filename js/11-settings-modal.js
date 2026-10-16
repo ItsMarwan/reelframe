@@ -658,7 +658,7 @@ async function importLibraryData(file){
         state.nsfwRegionClasses = new Set(parsed.nsfwClasses.region.filter(v => DEFAULT_NSFW_REGION_CLASSES.includes(v)));
         saveNsfwRegionClasses();
       }
-      if(nsfwClassList) renderNsfwClassControls();
+      if(typeof window.renderNsfwClassControls === 'function') window.renderNsfwClassControls();
     }
     if(parsed.websiteWallpaper && typeof parsed.websiteWallpaper.image === 'string'){
       state.websiteWallpaper = {
@@ -902,6 +902,7 @@ function bindSettingsModal(){
   const nsfwRegionPauseBtn = document.getElementById('nsfwRegionPauseBtn');
   const redeemCodeInput = document.getElementById('redeemCodeInput');
   const redeemCodeBtn = document.getElementById('redeemCodeBtn');
+  const shareAutoApproveSelect = document.getElementById('shareAutoApproveSelect');
 
   function renderNsfwClassControls(){
     if(!nsfwClassList) return;
@@ -946,6 +947,7 @@ function bindSettingsModal(){
     updateNsfwRegionScanUI();
   }
   renderWebsiteWallpaper();
+  window.renderNsfwClassControls = renderNsfwClassControls; // importLibraryData() lives outside this scope
   renderNsfwClassControls();
   refreshNsfwFeatureUI();
 
@@ -1165,7 +1167,7 @@ function bindSettingsModal(){
     realMiniPlayerToggle.checked = state.realMiniPlayerEnabled;
     if(miniPlayerEnabledToggle) miniPlayerEnabledToggle.checked = state.miniPlayerEnabled;
     lockToggle.checked = state.lockEnabled;
-    shareAutoApproveSelect.value = state.shareAutoApprove;
+    if(shareAutoApproveSelect) shareAutoApproveSelect.value = state.shareAutoApprove;
     lockPasswordInput.value = '';
     if(lockPasswordConfirmInput) lockPasswordConfirmInput.value = '';
     if(lockBlurDelayInput) lockBlurDelayInput.value = state.lockBlurDelaySeconds;
@@ -1192,12 +1194,14 @@ function bindSettingsModal(){
     toast(state.discoverEnabled ? 'Continue watching / Recently added shown' : 'Continue watching / Recently added hidden');
   });
 
-  shareAutoApproveSelect.addEventListener('change', () => {
-    state.shareAutoApprove = shareAutoApproveSelect.value;
-    saveShareAutoApproveSetting();
-    const labels = { always:'Always auto-approving', local:'Auto-approving on local network only', internet:'Auto-approving over internet only', never:'Always asking before approving' };
-    toast(labels[state.shareAutoApprove] || 'Setting saved');
-  });
+  if(shareAutoApproveSelect){
+    shareAutoApproveSelect.addEventListener('change', () => {
+      state.shareAutoApprove = shareAutoApproveSelect.value;
+      saveShareAutoApproveSetting();
+      const labels = { always:'Always auto-approving', local:'Auto-approving on local network only', internet:'Auto-approving over internet only', never:'Always asking before approving' };
+      toast(labels[state.shareAutoApprove] || 'Setting saved');
+    });
+  }
 
   realMiniPlayerToggle.addEventListener('change', () => {
     state.realMiniPlayerEnabled = realMiniPlayerToggle.checked;

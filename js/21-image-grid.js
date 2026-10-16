@@ -121,6 +121,7 @@ function createPinCard(item, opts = {}){
     if(state.snapshotSelectMode && item.source === 'snapshot') return;
     openFocus(item);
   });
+  if(typeof decorateVariantBadge === 'function') decorateVariantBadge(el, item, '');
   return el;
 }
 

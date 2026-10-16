@@ -115,6 +115,130 @@ async function decodeAudioForASR(file){
   return rendered.getChannelData(0);
 }
 
+
+/* ==========================================================================
+   VTT normalizer — the fix for captions that "just scroll and break".
+   Whisper hands back segments that can run 10-30s with 200+ characters, and
+   neighbouring cues can overlap (a cue's end past the next cue's start).
+   The browser stacks overlapping cues on top of each other and pushes the
+   old ones up, which looks like scrolling text that never clears. Imported
+   .srt/.ass files can have the same overlaps. This rebuilds any VTT so that
+   every cue is short (<= 2 lines), non-overlapping, and ends before the next
+   one starts. Applied both when generating and when attaching, so captions
+   already saved in IndexedDB are repaired too.
+   ========================================================================== */
+const CAPTION_MAX_LINE_CHARS = 42;
+const CAPTION_MAX_CUE_CHARS = CAPTION_MAX_LINE_CHARS * 2;
+const CAPTION_MAX_CUE_SECS = 6;
+const CAPTION_MIN_CUE_SECS = 0.8;
+
+function vttStamp(sec){
+  sec = Math.max(0, sec || 0);
+  const ms = Math.round((sec - Math.floor(sec)) * 1000);
+  let whole = Math.floor(sec); let msFix = ms;
+  if(msFix === 1000){ whole += 1; msFix = 0; }
+  const h = Math.floor(whole / 3600), m = Math.floor((whole % 3600) / 60), s2 = whole % 60;
+  const pad = (n, l = 2) => String(n).padStart(l, '0');
+  return `${pad(h)}:${pad(m)}:${pad(s2)}.${pad(msFix, 3)}`;
+}
+
+function parseVttTimedCues(vttText){
+  const out = [];
+  if(!vttText) return out;
+  const toSec = (str) => {
+    const m = String(str).trim().match(/^(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{1,3})/);
+    if(!m) return null;
+    return (+(m[1] || 0)) * 3600 + (+m[2]) * 60 + (+m[3]) + (+m[4].padEnd(3, '0')) / 1000;
+  };
+  vttText.replace(/\r/g, '').split(/\n\n+/).forEach(block => {
+    const lines = block.split('\n').filter(l => l.trim() !== '');
+    if(!lines.length || /^(WEBVTT|NOTE|STYLE|REGION)/.test(lines[0])) return;
+    let idx = lines[0].includes('-->') ? 0 : 1;
+    const timeLine = lines[idx];
+    if(!timeLine || !timeLine.includes('-->')) return;
+    const [a, b] = timeLine.split('-->');
+    const start = toSec(a);
+    let end = toSec(b.trim().split(/\s+/)[0]);
+    if(start == null) return;
+    const text = lines.slice(idx + 1).join(' ').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    if(!text) return;
+    out.push({ start, end: (end == null || end <= start) ? start + 2 : end, text });
+  });
+  return out;
+}
+
+/* Greedy word-wrap into pieces of <= CAPTION_MAX_CUE_CHARS, preferring to
+   break after sentence punctuation. */
+function splitCaptionText(text){
+  const words = text.split(' ').filter(Boolean);
+  const pieces = [];
+  let cur = [];
+  const len = (arr) => arr.join(' ').length;
+  words.forEach(w => {
+    if(cur.length && len(cur) + 1 + w.length > CAPTION_MAX_CUE_CHARS){
+      pieces.push(cur.join(' ')); cur = [];
+    }
+    cur.push(w);
+    if(/[.!?…]$/.test(w) && len(cur) > CAPTION_MAX_LINE_CHARS * 0.6){ pieces.push(cur.join(' ')); cur = []; }
+  });
+  if(cur.length) pieces.push(cur.join(' '));
+  return pieces;
+}
+
+function wrapCaptionLines(text){
+  if(text.length <= CAPTION_MAX_LINE_CHARS) return text;
+  const words = text.split(' ');
+  let best = null;
+  // choose the split point that balances the two lines
+  for(let i = 1; i < words.length; i++){
+    const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ');
+    const worst = Math.max(a.length, b.length);
+    if(best == null || worst < best.worst) best = { a, b, worst };
+  }
+  return best ? `${best.a}\n${best.b}` : text;
+}
+
+function normalizeVtt(vttText){
+  const raw = parseVttTimedCues(vttText).sort((x, y) => x.start - y.start);
+  if(!raw.length) return vttText;
+
+  // 1) split long cues into short ones, sharing the original time span
+  const pieces = [];
+  raw.forEach((cue, ri) => {
+    const parts = splitCaptionText(cue.text.replace(/&/g, '&amp;').replace(/</g, '&lt;'));
+    // A cue may not run into the next one: whatever starts later wins the screen.
+    const nextRaw = raw.slice(ri + 1).find(r => r.start > cue.start + 0.01);
+    const limit = nextRaw ? Math.min(cue.end, nextRaw.start) : cue.end;
+    const dur = Math.max(0.3, limit - cue.start);
+    const totalChars = parts.reduce((n, p) => n + p.length, 0) || 1;
+    // never let one cue's stretch exceed a readable length
+    const span = Math.min(dur, parts.length * CAPTION_MAX_CUE_SECS);
+    let t = cue.start;
+    parts.forEach(part => {
+      const share = span * (part.length / totalChars);
+      pieces.push({ start: t, end: t + share, text: part });
+      t += share;
+    });
+  });
+
+  // 2) enforce: no overlap, sensible min/max length, drop adjacent duplicates
+  const out = [];
+  pieces.forEach((cue, i) => {
+    const next = pieces[i + 1];
+    let start = Math.max(cue.start, out.length ? out[out.length - 1].end : 0);
+    let end = cue.end;
+    const readable = Math.max(CAPTION_MIN_CUE_SECS, Math.min(CAPTION_MAX_CUE_SECS, cue.text.length / 14));
+    end = Math.min(end, start + Math.max(readable, CAPTION_MIN_CUE_SECS));
+    if(next) end = Math.min(end, Math.max(next.start, start + 0.05));
+    if(end <= start) end = start + 0.05;
+    const prev = out[out.length - 1];
+    if(prev && prev.text === cue.text && start - prev.end < 1){ prev.end = Math.max(prev.end, end); return; }
+    out.push({ start, end, text: cue.text });
+  });
+
+  return 'WEBVTT\n\n' + out.map(c => `${vttStamp(c.start)} --> ${vttStamp(c.end)}\n${wrapCaptionLines(c.text)}`).join('\n\n') + '\n';
+}
+
 function buildVttFromChunks(chunks){
   const cues = chunks
     .filter(c => c.text && c.text.trim())
@@ -123,7 +247,7 @@ function buildVttFromChunks(chunks){
       const end = (rawEnd == null || rawEnd <= start) ? start + 2 : rawEnd;
       return `${formatTimeForVTT(start)} --> ${formatTimeForVTT(end)}\n${c.text.trim()}`;
     });
-  return `WEBVTT\n\n${cues.join('\n\n')}`;
+  return normalizeVtt(`WEBVTT\n\n${cues.join('\n\n')}`);
 }
 
 async function startCaptionGeneration(item){
@@ -218,6 +342,24 @@ function generateCaptions(){
    the moment it finishes (see the `attachCaptionTrack(..., {show:true})`
    call in startCaptionGeneration above).
    ========================================================================== */
+function clearCaptionTracks(video = document.getElementById('videoPlayer')){
+  if(!video) return;
+  const tracks = [...video.querySelectorAll('track[data-caption-track]')];
+  tracks.forEach((track) => {
+    if(track.dataset.blobUrl) URL.revokeObjectURL(track.dataset.blobUrl);
+    track.remove();
+  });
+  if(video.textTracks){
+    for(let i = video.textTracks.length - 1; i >= 0; i--){
+      const track = video.textTracks[i];
+      if(track && (track.kind === 'subtitles' || track.label === 'Generated captions' || track.label === 'Saved captions' || track.label === 'Captions')){
+        try { track.mode = 'hidden'; } catch(e) {}
+      }
+    }
+  }
+  state.captionsEnabled = false;
+}
+
 function getCaptionTrackEl(){
   const video = document.getElementById('videoPlayer');
   return video ? video.querySelector('track[data-caption-track]') : null;
@@ -233,19 +375,26 @@ function attachCaptionTrack(vttText, label, opts = {}){
     old.remove();
   }
 
-  const url = URL.createObjectURL(new Blob([vttText], { type: 'text/vtt' }));
+  const url = URL.createObjectURL(new Blob([normalizeVtt(vttText)], { type: 'text/vtt' }));
   const track = document.createElement('track');
   track.kind = 'subtitles';
   track.label = label || 'Captions';
   track.srclang = 'en';
   track.src = url;
+  track.default = true;
   track.dataset.captionTrack = 'true';
   track.dataset.blobUrl = url;
   video.appendChild(track);
 
   const show = !!opts.show;
   state.captionsEnabled = show;
-  if(track.track) track.track.mode = show ? 'showing' : 'hidden';
+  if(track.track){
+    track.track.mode = show ? 'showing' : 'hidden';
+    for(let i = 0; i < video.textTracks.length; i++){
+      const t = video.textTracks[i];
+      if(t !== track.track && (t.kind === 'subtitles' || t.label === track.label)) t.mode = 'hidden';
+    }
+  }
 
   if(!opts.silent) toast(show ? 'Captions on' : 'Captions loaded');
   updateCaptionButtonUI();

@@ -94,14 +94,18 @@ function openWatch(item, opts = {}){
   recordHistory(item);
   consumeWatchLater(item);
   clearNextUpPrompt({ reset: true });
+  if(typeof resetPlayerScrubPreview === 'function') resetPlayerScrubPreview();
   showView('videoWatch');
   applySidebarCollapsed();
   if(opts.push !== false) history.pushState(null, '', `?v=${encodeURIComponent(item.path)}`);
   const player = document.getElementById('videoPlayer');
-  [...player.querySelectorAll('track')].forEach(t => {
-    if(t.dataset.blobUrl) URL.revokeObjectURL(t.dataset.blobUrl);
-    t.remove();
-  });
+  if(player){
+    player.pause();
+    player.removeAttribute('src');
+    player.load();
+    if(typeof clearCaptionTracks === 'function') clearCaptionTracks(player);
+    else [...player.querySelectorAll('track')].forEach(t => { if(t.dataset.blobUrl) URL.revokeObjectURL(t.dataset.blobUrl); t.remove(); });
+  }
   state.captionsEnabled = false;
   updateCaptionButtonUI();
   // Flagged videos don't autoplay — applyWatchNsfwGate below shows a blurred
@@ -142,6 +146,7 @@ function openWatch(item, opts = {}){
   const musicAudio = document.getElementById('musicAudioEl');
   if(musicAudio && !musicAudio.paused) musicAudio.pause();
   applyWatchItemMeta(item);
+  if(typeof censorRefreshVersions === 'function') censorRefreshVersions(item);
 
   const captionToggleBtn = document.getElementById('captionToggleBtn');
   const captionFileInput = document.getElementById('captionFileInput');
@@ -187,6 +192,7 @@ function renderWatchSideList(sideCards, forYouPaths){
         </div>
         <span class="wside-dur" hidden></span>${watchedProgressHTML(v)}
         <button class="vcard-fav ${isFav(v)?'is-fav':''}" data-fav-key="${favKey(v)}" title="Favorite">${heartSVG(isFav(v))}</button>
+        <button class="vcard-fav watch-later-btn ${isWatchLater(v)?'is-watch-later':''}" data-watch-later-key="${favKey(v)}" title="Watch later">${watchLaterSVG(isWatchLater(v))}</button>
       </div>
       <div class="wside-meta">
         <div class="wt">${escapeHtml(v.name)}</div>
@@ -199,6 +205,15 @@ function renderWatchSideList(sideCards, forYouPaths){
       e.currentTarget.classList.toggle('is-fav', isFav(v));
       e.currentTarget.innerHTML = heartSVG(isFav(v));
     });
+    const laterBtn = row.querySelector('.watch-later-btn');
+    if(laterBtn){
+      laterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleWatchLater(v);
+        laterBtn.classList.toggle('is-watch-later', isWatchLater(v));
+        laterBtn.innerHTML = watchLaterSVG(isWatchLater(v));
+      });
+    }
     row.addEventListener('click', () => openWatch(v));
     sideList.appendChild(row);
     attachHoverPreview(row, v, '.wside-thumb');

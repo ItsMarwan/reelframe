@@ -167,7 +167,8 @@ function renderDiscoverSections(){
       `;
       card.addEventListener('click', () => openWatch(item));
       continueRow.appendChild(card);
-      loadCardThumb(card, item);
+      if(typeof decorateVariantBadge === 'function') decorateVariantBadge(card, item, '.vcard-thumb');
+    loadCardThumb(card, item);
       attachHoverPreview(card, item);
     });
   } else {
@@ -196,7 +197,8 @@ function renderDiscoverSections(){
       `;
       card.addEventListener('click', () => openWatch(item));
       recentRow.appendChild(card);
-      loadCardThumb(card, item);
+      if(typeof decorateVariantBadge === 'function') decorateVariantBadge(card, item, '.vcard-thumb');
+    loadCardThumb(card, item);
       attachHoverPreview(card, item);
     });
   } else {
@@ -248,6 +250,7 @@ function renderForYouRow(){
     });
     card.addEventListener('click', () => openWatch(item));
     row.appendChild(card);
+    if(typeof decorateVariantBadge === 'function') decorateVariantBadge(card, item, '.vcard-thumb');
     loadCardThumb(card, item);
     attachHoverPreview(card, item);
   });

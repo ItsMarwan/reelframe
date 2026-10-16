@@ -155,6 +155,7 @@ function appendVideoCards(count){
       toggleWatchLater(item);
     });
     card.addEventListener('click', () => openWatch(item));
+    if(typeof decorateVariantBadge === 'function') decorateVariantBadge(card, item, '.vcard-thumb');
     wrap.appendChild(card);
     observers.grid.observe(card);
     attachHoverPreview(card, item);

@@ -130,7 +130,7 @@ function openImagePop(item){
   const frame = document.getElementById('imagePopFrame');
   const img = document.getElementById('imagePopImg');
 
-  const popSrc = ensureItemUrl(item);
+  const popSrc = (typeof variantActiveImageUrl === 'function' && variantActiveImageUrl(item)) || ensureItemUrl(item);
   if(popSrc && /^https?:\/\//i.test(popSrc)){
     try{ img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'; }catch(e){}
   }
@@ -381,17 +381,36 @@ function openFocus(item, opts = {}){
     // the gate overlay/canvas already effectively do for their own
     // clicks — this just brings the image element's click in line with it.
     const wrap = document.getElementById('focusImgWrap');
-    const revealed = !!(wrap && wrap.classList.contains('nsfw-revealed'));
+    const revealed = !!(wrap && (wrap.classList.contains('nsfw-revealed') || wrap.classList.contains('variant-shown')));
     if(!revealed && shouldGateItem(item)) return;
     if(focusPreventClick){ focusPreventClick = false; return; }
     openImagePop(item);
   };
   applyFocusNsfwGate(item);
+  if(typeof variantsOpenItem === 'function') variantsOpenItem(item);
   document.getElementById('focusTitle').textContent = item.name;
   const focusMetaEl = document.getElementById('focusMeta');
   focusMetaEl.innerHTML = `<span class="meta-cat-link" data-cat="${escapeAttr(item.category)}" title="Jump to this category">${escapeHtml(item.category)}</span> · ${escapeHtml(formatDate(item.lastModified))} · ${escapeHtml(formatBytes(item.size))}`;
   const focusCatLink = focusMetaEl.querySelector('.meta-cat-link');
   if(focusCatLink) focusCatLink.addEventListener('click', () => goToCategory('images', item.category));
+  // Resolution: appended once the image's real pixel size is known.
+  {
+    const resImg = document.getElementById('focusImg');
+    const showRes = () => {
+      if(state.currentImage !== item || !resImg.naturalWidth) return;
+      const mp = (resImg.naturalWidth * resImg.naturalHeight) / 1e6;
+      const old = focusMetaEl.querySelector('.focus-res');
+      if(old) old.remove();
+      const span = document.createElement('span');
+      span.className = 'focus-res';
+      span.textContent = ` · ${resImg.naturalWidth} × ${resImg.naturalHeight}${mp >= 0.1 ? ` (${mp.toFixed(1)} MP)` : ''}`;
+      focusMetaEl.appendChild(span);
+    };
+    if(resImg.complete && resImg.naturalWidth) showRes();
+    if(resImg._resHandler) resImg.removeEventListener('load', resImg._resHandler);
+    resImg._resHandler = showRes;
+    resImg.addEventListener('load', showRes);
+  }
 
   const favBtn = document.getElementById('focusFavBtn');
   favBtn.setAttribute('data-fav-key', favKey(item));
