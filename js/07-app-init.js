@@ -357,3 +357,16 @@ function goToCategory(tab, cat){
   setTab(tab, { skipRender:true });
   goToGrid(tab);
 }
+/* Show / hide password on the lock screen. Delegated so it keeps working if
+   the lock gate is ever rebuilt from its template. */
+document.addEventListener('click', function(e){
+  const btn = e.target.closest && e.target.closest('#lockReveal');
+  if(!btn) return;
+  const input = document.getElementById('lockPasswordEntry');
+  if(!input) return;
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.classList.toggle('is-on', show);
+  btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  input.focus();
+});

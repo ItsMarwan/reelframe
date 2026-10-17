@@ -28,7 +28,7 @@
 <meta name="description" content="ReelFrame is a fast, local media library for organizing, browsing, and viewing your photos and videos.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#14120f">
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -41,13 +41,28 @@
 
 <!-- ================= LOCK GATE (PIN) ================= -->
 <div id="lockGate" hidden>
-  <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.6"/></svg>
-  <h2>ReelFrame is locked</h2>
-  <form id="lockForm">
-    <input type="password" id="lockPasswordEntry" class="input" placeholder="Password" autocomplete="off">
-    <div id="lockError" hidden></div>
-    <button type="submit" id="unlockBtn" class="btn btn-primary" style="margin-top:14px;width:100%;">Unlock</button>
-  </form>
+  <div class="lock-card">
+    <div class="lock-strip" aria-hidden="true"></div>
+    <div class="lock-body">
+      <div class="lock-mark" aria-hidden="true">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2" stroke="currentColor" stroke-width="1.6"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="15.2" r="1.3" fill="currentColor"/></svg>
+      </div>
+      <div class="lock-eyebrow">Private screening room</div>
+      <h2 class="lock-title">ReelFrame is <em>locked</em></h2>
+      <p class="lock-sub">Enter your password to open your library.</p>
+      <form id="lockForm" autocomplete="off">
+        <div class="lock-field">
+          <input type="password" id="lockPasswordEntry" class="input" placeholder="Password" autocomplete="off" aria-label="Password">
+          <button type="button" id="lockReveal" class="lock-reveal" aria-label="Show password" title="Show / hide">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/></svg>
+          </button>
+        </div>
+        <div id="lockError" role="alert" hidden></div>
+        <button type="submit" id="unlockBtn" class="btn btn-primary lock-submit">Unlock</button>
+      </form>
+    </div>
+    <div class="lock-strip" aria-hidden="true"></div>
+  </div>
 </div>
 
 <!-- ================= GATE (folder picker) ================= -->
@@ -311,7 +326,7 @@
               <button id="watchLaterBtn" class="icon-btn" title="Watch later"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
               <button id="watchSaveBtn" class="icon-btn" title="Save a copy"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0-4-4m4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="1.6"/></svg></button>
               <button id="censorBtn" class="icon-btn" title="Censor video"><svg class="icon-cc" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 20 20 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><svg class="icon-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" stroke-dasharray="34 20" stroke-linecap="round"/></svg></button>
-              <button id="watchVariantBtn" class="icon-btn" title="Add a variant of this video"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="3.5" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M8.5 20.5h10a2 2 0 0 0 2-2v-10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M9.5 7v6M6.5 10h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+              <button id="watchVariantBtn" class="icon-btn" title="Add variants from your library"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="3.5" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M8.5 20.5h10a2 2 0 0 0 2-2v-10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M9.5 7v6M6.5 10h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
             </div>
             <div id="watchVariants" class="censor-versions" hidden></div>
             <div id="watchSideList"></div>
@@ -379,7 +394,7 @@
                 <div class="focus-actions">
                   <button id="focusFavBtn" class="btn btn-sm" type="button" title="Favorite"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7.5-4.7-10-9.3C.4 8 2.3 4.5 6 4c2.2-.3 4 .9 6 3.2C14 4.9 15.8 3.7 18 4c3.7.5 5.6 4 4 7.7C19.5 16.3 12 21 12 21Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Favorite</span></button>
                   <button id="focusCensorBtn" class="btn btn-sm" type="button" title="Censor this photo — saved as a variant"><svg class="icon-cc" width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 20 20 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><svg class="icon-spinner" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" stroke-dasharray="34 20" stroke-linecap="round"/></svg><span>Censor</span></button>
-                  <button id="focusVariantBtn" class="btn btn-sm" type="button" title="Add another version of this photo">Add variant</button>
+                  <button id="focusVariantBtn" class="btn btn-sm" type="button" title="Pick other photos from your library as variants">Add variant</button>
                   <button id="focusSeeLaterBtn" class="btn btn-sm" type="button" title="See later">See later</button>
                   <button id="focusShareBtn" class="btn btn-sm" type="button" title="Share this photo">Share</button>
                   <button id="focusPartyBtn" class="btn btn-sm" type="button" title="Watch party — sync this photo with another device">Party</button>
@@ -487,16 +502,23 @@
   </div>
 
   <!-- ---------- IMAGE POP-OUT VIEWER ---------- -->
-  <div id="imagePopOverlay" hidden>
-    <div id="imagePopFrame">
-      <div id="imagePopDragbar">
-        <button id="imagePopZoom" class="icon-btn btn-sm">+</button>
-        <button id="imagePopFullscreenBtn" class="icon-btn btn-sm">⛶</button>
-        <button id="imagePopClose" class="icon-btn btn-sm">✕</button>
+  <div id="imagePopOverlay" role="dialog" aria-modal="true" aria-label="Photo viewer" hidden>
+    <div id="viewerTopbar">
+      <div id="viewerTitle"></div>
+      <div class="viewer-tools">
+        <button id="viewerZoomOut" class="viewer-btn" type="button" title="Zoom out (−)" aria-label="Zoom out"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg></button>
+        <button id="viewerZoomLevel" class="viewer-level" type="button" title="Toggle fit / close-up">100%</button>
+        <button id="viewerZoomIn" class="viewer-btn" type="button" title="Zoom in (+)" aria-label="Zoom in"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+        <span class="viewer-sep"></span>
+        <button id="viewerFit" class="viewer-btn" type="button" title="Fit to screen (0)" aria-label="Fit to screen"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/></svg></button>
+        <button id="viewerActual" class="viewer-btn viewer-btn-text" type="button" title="Actual size (1)">1:1</button>
+        <button id="viewerFullscreen" class="viewer-btn" type="button" title="Full screen (F)" aria-label="Full screen"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg></button>
+        <span class="viewer-sep"></span>
+        <button id="imagePopClose" class="viewer-btn" type="button" title="Close (Esc)" aria-label="Close"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </div>
-      <img id="imagePopImg" alt="">
-      <div id="imagePopResize"></div>
     </div>
+    <div id="viewerStage"><img id="imagePopImg" alt="" draggable="false"></div>
+    <div id="viewerHint">Scroll to zoom · drag to move · double-click to toggle</div>
   </div>
 
   <!-- ---------- MUSIC PLAYER BAR ---------- -->
@@ -700,6 +722,26 @@
 
 
 
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= VARIANT PICKER (choose from the library) ================= -->
+  <div id="variantPickerBackdrop" class="modal-backdrop" hidden>
+    <div class="modal modal-lg">
+      <div class="modal-header"><h2 id="variantPickerTitle">Add variants</h2><button id="variantPickerClose" class="icon-btn" aria-label="Close">✕</button></div>
+      <div class="modal-body">
+        <div class="censor-target">Variants of: <b id="variantPickerTarget"></b></div>
+        <div class="form-row">
+          <div class="field"><label for="variantPickerCategory">Category</label><select id="variantPickerCategory" class="input select"></select></div>
+          <div class="field"><label for="variantPickerSearch">Search</label><input id="variantPickerSearch" class="input" placeholder="Filter by name" autocomplete="off"></div>
+        </div>
+        <div id="variantPickerGrid" class="wallpaper-source-grid variant-picker-grid"></div>
+        <div id="variantPickerHint" class="hint"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="variantPickerCancel" class="btn" type="button">Cancel</button>
+        <button id="variantPickerAdd" class="btn btn-primary" type="button" disabled>Add</button>
       </div>
     </div>
   </div>
@@ -1177,7 +1219,6 @@
   </div>
     </div>
 
-  <input type="file" id="variantFileInput" hidden>
   <div id="censorProgressToast" class="chip censor-toast" hidden>
     <span id="censorToastLabel">Censoring…</span>
     <div class="progress-track" style="width:100px;"><span id="censorToastFill"></span></div>
@@ -1240,5 +1281,6 @@
 <script src="js/35-nsfw-scan.js"></script>
 <script src="js/36-nsfw-regions.js"></script>
 <script src="js/37-censor.js"></script>
+<script src="js/38-image-viewer.js"></script>
 </body>
 </html>
