@@ -99,26 +99,57 @@ function renderSidebar(){
 
   const countFor = (cat) => cat === null ? items.length : items.filter(i => i.category === cat).length;
 
-  let html = `<li class="cat-row"><button class="cat-item ${activeCat===null?'active':''}" data-cat="__all__">
+  /* Folder tree for this tab (skips the sidebar's own special buckets), so a
+     category can show its subfolders as a collapsible list. */
+  const tree = buildFolderTree(items.filter(i => i.category !== UNCATEGORIZED && i.category !== 'Snapshots'));
+  const activeSub = reconcileSubfolderSelection(state.tab, tree);
+
+  let html = `<li class="cat-row"><span class="cat-twist-spacer"></span><button class="cat-item ${activeCat===null?'active':''}" data-cat="__all__">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/></svg>
       All <span class="cat-count">${countFor(null)}</span>
     </button></li>`;
 
   cats.forEach(cat => {
     const fav = isCategoryFav(cat);
-    html += `<li class="cat-row"><button class="cat-item ${activeCat===cat?'active':''}" data-cat="${escapeAttr(cat)}">
+    const node = tree.children.get(cat);
+    const hasSubs = !!(node && node.children.size);
+    const open = hasSubs && catExpanded.has(expandKey(state.tab, cat));
+    html += `<li class="cat-group ${open ? 'is-open' : ''}"><div class="cat-row">
+      ${hasSubs
+        ? `<button type="button" class="cat-twist" data-twist="${escapeAttr(cat)}" aria-expanded="${open}" aria-label="${open ? 'Collapse' : 'Expand'} ${escapeAttr(cat)}">${CHEVRON_SVG}</button>`
+        : `<span class="cat-twist-spacer"></span>`}
+      <button class="cat-item ${activeCat===cat && !activeSub ? 'active' : ''}" data-cat="${escapeAttr(cat)}">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="1.6"/></svg>
-        ${escapeHtml(cat)} <span class="cat-count">${countFor(cat)}</span>
+        <span>${escapeHtml(cat)}</span> <span class="cat-count">${countFor(cat)}</span>
       </button>
-      <button class="cat-fav-btn ${fav?'is-fav':''}" type="button" data-cat-fav="${escapeAttr(cat)}" title="${fav?'Unfavorite category':'Favorite category'}">${heartSVG(fav)}</button></li>`;
+      <button class="cat-fav-btn ${fav?'is-fav':''}" type="button" data-cat-fav="${escapeAttr(cat)}" title="${fav?'Unfavorite category':'Favorite category'}">${heartSVG(fav)}</button></div>
+      ${hasSubs ? renderSubfolderList(state.tab, node, activeCat === cat ? activeSub : null) : ''}
+    </li>`;
   });
   list.className = `category-list tab-context-${state.tab}`;
   list.innerHTML = html;
 
+  /* Expand / collapse a folder's subfolders — doesn't change what's showing. */
+  list.querySelectorAll('.cat-twist').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const k = expandKey(state.tab, btn.getAttribute('data-twist'));
+      const open = !catExpanded.has(k);
+      if(open) catExpanded.add(k); else catExpanded.delete(k);
+      saveCatExpanded();
+      const holder = btn.closest('li');
+      if(holder) holder.classList.toggle('is-open', open);
+      btn.setAttribute('aria-expanded', String(open));
+    });
+  });
+
   list.querySelectorAll('.cat-item').forEach(btn => {
     btn.addEventListener('click', () => {
       const cat = btn.getAttribute('data-cat');
+      const sub = btn.getAttribute('data-sub');
       state.cat[state.tab] = cat === '__all__' ? null : cat;
+      state.subcat[state.tab] = sub ? { cat, key: sub } : null;
+      if(sub) expandAncestorsOf(state.tab, sub);
       document.querySelectorAll('#categoryList .cat-item').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.sidebar .cat-item[data-special]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');

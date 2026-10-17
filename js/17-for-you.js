@@ -279,7 +279,10 @@ function headingFor(tab){
   if(cat === '__watchlater__') return 'Watch later';
   if(cat === '__seelater__') return 'See later';
   if(cat === '__captioned__') return 'Captioned';
-  if(cat) return `${cat}`;
+  if(cat){
+    const sub = activeSubfolder(tab);
+    return sub ? subfolderLabel(sub) : `${cat}`;
+  }
   return `All ${noun}`;
 }
 

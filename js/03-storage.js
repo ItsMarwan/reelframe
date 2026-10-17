@@ -268,11 +268,13 @@ function loadWebsiteWallpaper(){
     return null;
   } catch(e){ return null; }
 }
+/* Returns true when the background was stored (or cleared), false when the
+   browser refused it — usually because the picture is too big for localStorage. */
 function saveWebsiteWallpaper(){
   try{
     if(!state.websiteWallpaper || !state.websiteWallpaper.image){
       localStorage.removeItem(WEBSITE_WALLPAPER_KEY);
-      return;
+      return true;
     }
     localStorage.setItem(WEBSITE_WALLPAPER_KEY, JSON.stringify({
       image: state.websiteWallpaper.image,
@@ -283,7 +285,11 @@ function saveWebsiteWallpaper(){
       positionX: typeof state.websiteWallpaper.positionX === 'number' ? state.websiteWallpaper.positionX : 50,
       positionY: typeof state.websiteWallpaper.positionY === 'number' ? state.websiteWallpaper.positionY : 50,
     }));
-  }catch(e){}
+    return true;
+  }catch(e){
+    console.warn('Could not store the website background', e);
+    return false;
+  }
 }
 
 function progressKeyForItem(item){ return `${item.type}:${item.path}`; }

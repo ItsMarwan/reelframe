@@ -22,6 +22,8 @@ function getFiltered(tab){
   }
   else if(cat === '__history__') list = historyItemsFor(tab);
   else if(cat && cat !== '__snapshots__' && cat !== '__watchlater__' && cat !== '__seelater__' && cat !== '__captioned__') list = list.filter(i => i.category === cat);
+  const subKey = activeSubfolder(tab);
+  if(subKey) list = list.filter(i => subfolderMatches(i, subKey));
   if(state.filters[tab].category && state.filters[tab].category !== 'all'){
     list = list.filter(i => i.category === state.filters[tab].category);
   }

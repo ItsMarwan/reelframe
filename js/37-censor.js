@@ -653,30 +653,47 @@ async function variantsOpenItem(item){
 /* Kept under the old name — openWatch calls this. */
 function censorRefreshVersions(item){ return variantsOpenItem(item); }
 
-/* ---- adding your own variants ---- */
-function variantsPickFile(item){
-  if(!item) return;
-  const input = censorEl('variantFileInput');
-  if(!input) return;
-  input.accept = censorIsImage(item) ? 'image/*' : 'video/*';
-  input.multiple = true;
-  input._item = item;
-  input.value = '';
-  input.click();
+/* ---- adding your own variants ----
+   "Add variant" opens the shared library picker (same one the website
+   background uses): choose photos/videos from the library or upload from
+   this device, and each one is saved as a variant of the open item. */
+let variantsPickerBusy = false;
+async function variantsPickFile(item){
+  if(!item || variantsPickerBusy) return;
+  if(typeof openImagePicker !== 'function'){
+    toast('The picker didn\'t load — try refreshing the page.');
+    return;
+  }
+  variantsPickerBusy = true;
+  try{
+    const isImage = censorIsImage(item);
+    const picked = await openImagePicker({
+      kind: isImage ? 'image' : 'video',
+      multiple: true,
+      title: 'Add variants',
+      subtitle: `Variants of: ${item.name}`,
+      excludePath: item.path,
+      confirmLabel: (n) => n > 1 ? `Add ${n} variants` : 'Add variant',
+    });
+    if(picked && picked.length) await variantsHandleFiles(item, picked);
+  } finally {
+    variantsPickerBusy = false;
+  }
 }
 
-async function variantsHandleFiles(item, files){
+/* `entries` are what the picker hands back: [{ blob, name }, …] */
+async function variantsHandleFiles(item, entries){
   const wantImage = censorIsImage(item);
-  const ok = files.filter(f => f.type ? f.type.startsWith(wantImage ? 'image/' : 'video/') : true);
+  const ok = entries.filter(e => e && e.blob && (e.blob.type ? e.blob.type.startsWith(wantImage ? 'image/' : 'video/') : true));
   if(!ok.length){ toast(wantImage ? 'Pick an image file.' : 'Pick a video file.'); return; }
-  if(ok.length < files.length) toast(`Skipped ${files.length - ok.length} file${files.length - ok.length === 1 ? '' : 's'} that weren't ${wantImage ? 'images' : 'videos'}.`);
+  if(ok.length < entries.length) toast(`Skipped ${entries.length - ok.length} file${entries.length - ok.length === 1 ? '' : 's'} that weren't ${wantImage ? 'images' : 'videos'}.`);
   let last = null;
-  for(const f of ok){
+  for(const e of ok){
     const version = {
       id: `cv_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
       createdAt: Date.now(), kind: 'upload',
-      label: f.name.replace(/\.[^.]+$/, '') || 'Variant', mime: f.type || '',
-      blob: f,
+      label: (e.name || '').replace(/\.[^.]+$/, '') || 'Variant', mime: e.blob.type || '',
+      blob: e.blob,
     };
     await variantsAdd(item, version);
     last = version;
@@ -696,13 +713,6 @@ function bindCensorModal(){
   if(wvBtn) wvBtn.addEventListener('click', () => variantsPickFile(state.currentVideo));
   const fvBtn = censorEl('focusVariantBtn');
   if(fvBtn) fvBtn.addEventListener('click', () => variantsPickFile(state.currentImage));
-  const fileInput = censorEl('variantFileInput');
-  if(fileInput) fileInput.addEventListener('change', () => {
-    const item = fileInput._item;
-    const files = [...(fileInput.files || [])];
-    fileInput.value = '';
-    if(item && files.length) variantsHandleFiles(item, files);
-  });
 
   const cancel = censorEl('censorToastCancel');
   if(cancel) cancel.addEventListener('click', censorCancelRun);
