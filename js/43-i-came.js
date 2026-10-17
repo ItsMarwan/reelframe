@@ -1,18 +1,29 @@
 /* ==========================================================================
    js/43-i-came.js  —  "I came" (Focus view)
-   - Each press shoots a number of separate ropes, one after another. Every rope
-     is a connected, uneven jet (thick head, thinning strands, breaking beads)
-     that sweeps while it is shot and lands on the photo.
-   - A rope's splat only appears once that rope actually touches the photo.
-   - Splats and the stream are fully opaque, glossy white liquid. Drips are random and liquidy.
-   - Rope count, amount, splat size and drip amount are all
-     adjustable in Settings. All styles are injected from this file.
+   Fluid model (v2):
+   - EMITTER      : each press fires several ropes. A rope is a chain of parcels with
+                    pulsed flow, a fat head, thinning body and a beaded tail. Direction
+                    wobbles slowly, speed varies parcel to parcel, so the jet stretches.
+   - LINKS        : neighbouring parcels are joined by threads that neck down as they
+                    stretch and snap at a viscosity-dependent length (thin = early).
+                    Snapping can leave a tiny satellite droplet in flight.
+   - CONTACT      : a parcel "hits" when its flight time ends. Only then is the deposit
+                    revealed; it grows while the rest of the rope keeps landing.
+   - DEPOSITS     : central patch area follows the volume actually delivered; spread and
+                    elongation follow impact speed + material. Far-flung droplets become
+                    their own tiny deposits. Tiny volumes give droplets only.
+   - SATELLITES   : variable count / radius / distance / direction around each deposit.
+   - DRIPS        : optional, driven by volume, material and surface tilt; irregular onset,
+                    speed, width and length; some narrow and pinch off a bead.
+   - Everything is seeded per press (photo + press count) so a press is reproducible.
+   Tunables: ICAME_MATERIALS, ICAME_PHYS and the settings panel (ropes, amount, size,
+   drips, fluid type).
    ========================================================================== */
 const ICAME_KEY = 'reelframe-i-came-v1';
 const ICAME_SETTINGS_KEY = 'reelframe-i-came-settings-v1';
 const ICAME_CAT = '__icame__';
 const ICAME_DEFAULT_COOLDOWN_HOURS = 8;
-const ICAME_MAX_SPLATS_SHOWN = 36;
+const ICAME_MAX_SPLATS_SHOWN = 80;
 
 const ICAME_BODY_PART_PRESETS = {
   custom: { label: 'Custom location', x: 0.18, y: 0.22, w: 0.64, h: 0.5 },
@@ -26,8 +37,90 @@ const ICAME_BODY_PART_PRESETS = {
   feet: { label: 'Feet', x: 0.22, y: 0.76, w: 0.56, h: 0.18 },
   armpits: { label: 'Armpits', x: 0.18, y: 0.32, w: 0.64, h: 0.12 }
 };
-const ICAME_DEFAULTS = { cooldownHours: ICAME_DEFAULT_COOLDOWN_HOURS, showSplats: true, ropes: 4, ropesRandom: true, amount: 100, size: 100, drips: 70, targetMode: 'anywhere', targetPreset: 'custom', target: { x: 0.18, y: 0.22, w: 0.64, h: 0.5 } };
-const ICAME_RANGES = { ropes: [1, 12], amount: [20, 250], size: [40, 250], drips: [0, 100] };
+
+/* Fluid presets. visc 0..1 (thin → thick). Every emission uses ONE preset throughout.
+   breakLen : thread length multiplier before it snaps (low = breaks up early)
+   spread   : how far a deposit spreads on impact      ragged : boundary irregularity
+   sat      : satellite-droplet multiplier              dripSpeed / dripLen : drip behaviour
+   opacity  : 0.7 = translucent, 1 = opaque              sheen : highlight strength        */
+const ICAME_MATERIALS = {
+  watery: { label: 'Watery / thin',    visc: 0.15, opacity: 0.62, color: '#eceff0', goo: 0, breakLen: 0.70, spread: 1.35, ragged: 1.40, sat: 1.6, dripSpeed: 1.7,  dripLen: 1.2, sheen: 0.5 },
+  medium: { label: 'Medium',           visc: 0.50, opacity: 0.93, color: '#f1eee5', goo: 1, breakLen: 1.05, spread: 1.00, ragged: 1.00, sat: 1.0, dripSpeed: 1.0,  dripLen: 1.0, sheen: 0.7 },
+  thick:  { label: 'Thick / opaque',   visc: 0.85, opacity: 1.00, color: '#f5f2e9', goo: 1, breakLen: 1.70, spread: 0.72, ragged: 0.65, sat: 0.5, dripSpeed: 0.45, dripLen: 0.7, sheen: 0.9 }
+};
+/* gravity in screen px/s² ; tilt: 1 = vertical surface (drips run), 0 = flat (no drips) */
+const ICAME_PHYS = { gravity: 1700, tilt: 1 };
+/* false = no outline / rim shading around deposits (set true to bring it back) */
+const ICAME_OUTLINE = false;
+
+/* Wateriness is continuous: 0 = thick, 0.5 = medium, 1 = watery. Old string keys still work. */
+const ICAME_WATERY_OF = { thick: 0.1, medium: 0.5, watery: 0.9 };
+const icameMatCache = new Map();
+function hexLerp(a, b, t){
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const A = p(a), B = p(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+function icameMaterial(m){
+  let w = typeof m === 'number' ? m : (ICAME_WATERY_OF[m] != null ? ICAME_WATERY_OF[m] : 0.5);
+  w = Math.round(clampNum(w, 0, 1) * 100) / 100;
+  let c = icameMatCache.get(w);
+  if(c) return c;
+  const lo = w <= 0.5 ? ICAME_MATERIALS.thick : ICAME_MATERIALS.medium;
+  const hi = w <= 0.5 ? ICAME_MATERIALS.medium : ICAME_MATERIALS.watery;
+  const t = w <= 0.5 ? w / 0.5 : (w - 0.5) / 0.5;
+  c = { label: 'Custom' };
+  ['visc', 'opacity', 'breakLen', 'spread', 'ragged', 'sat', 'dripSpeed', 'dripLen', 'sheen'].forEach(k => { c[k] = lo[k] + (hi[k] - lo[k]) * t; });
+  c.color = hexLerp(lo.color, hi.color, t);
+  c.goo = w < 0.7 ? 1 : 0;
+  icameMatCache.set(w, c);
+  return c;
+}
+
+/* Presets (apply to the sliders; "Cum by age" then scales on top of them) */
+const ICAME_PRESETS = {
+  normal:   { label: 'Normal',            ropes: 4,  amount: 100, size: 100, drips: 70, watery: 50 },
+  light:    { label: 'Light',             ropes: 3,  amount: 55,  size: 80,  drips: 30, watery: 55 },
+  heavy:    { label: 'Heavy',             ropes: 7,  amount: 170, size: 120, drips: 85, watery: 35 },
+  watery:   { label: 'Watery',            ropes: 5,  amount: 100, size: 110, drips: 85, watery: 90 },
+  thick:    { label: 'Thick & sticky',    ropes: 4,  amount: 110, size: 90,  drips: 35, watery: 8 },
+  dribble:  { label: 'Dribble',           ropes: 2,  amount: 30,  size: 60,  drips: 60, watery: 70 },
+  marathon: { label: 'Marathon',          ropes: 10, amount: 200, size: 130, drips: 80, watery: 45 }
+};
+
+/* Cum by age: rough, approximate curves relative to a young adult (not medical data).
+   Volume, number of strong spurts and force all trend down with age; thinner with age. */
+function icameCurve(x, pts){
+  if(x <= pts[0][0]) return pts[0][1];
+  for(let i = 1; i < pts.length; i++){
+    if(x <= pts[i][0]){ const [x0, y0] = pts[i - 1], [x1, y1] = pts[i]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); }
+  }
+  return pts[pts.length - 1][1];
+}
+function icameAgeFactors(age){
+  return {
+    vol:   icameCurve(age, [[18, 1], [25, 1], [35, 0.93], [45, 0.85], [55, 0.75], [65, 0.62], [75, 0.5], [90, 0.35], [100, 0.3]]),
+    ropes: icameCurve(age, [[18, 1], [30, 0.95], [40, 0.82], [50, 0.68], [60, 0.55], [70, 0.42], [85, 0.3], [100, 0.25]]),
+    force: icameCurve(age, [[18, 1], [30, 0.95], [40, 0.85], [50, 0.72], [60, 0.6], [70, 0.5], [100, 0.35]]),
+    water: 0.12 * clampNum((age - 25) / 50, 0, 1)
+  };
+}
+/* the values a press actually uses (settings, scaled by age when "Cum by age" is on) */
+function icameEffective(){
+  const S = state.iCameSettings;
+  const E = { ropes: S.ropes, amount: S.amount, watery: clampNum(S.watery / 100, 0, 1), force: 1 };
+  if(S.ageMode && S.age >= 18){
+    const f = icameAgeFactors(S.age);
+    E.ropes = Math.max(1, Math.round(S.ropes * f.ropes));
+    E.amount = Math.max(10, S.amount * f.vol);
+    E.watery = clampNum(E.watery + f.water, 0, 1);
+    E.force = f.force;
+  }
+  return E;
+}
+
+const ICAME_DEFAULTS = { cooldownHours: ICAME_DEFAULT_COOLDOWN_HOURS, showSplats: true, ropes: 4, ropesRandom: true, amount: 100, size: 100, drips: 70, watery: 50, ageMode: false, age: 25, targetMode: 'anywhere', targetPreset: 'custom', target: { x: 0.18, y: 0.22, w: 0.64, h: 0.5 } };
+const ICAME_RANGES = { ropes: [1, 12], amount: [20, 250], size: [40, 250], drips: [0, 100], watery: [0, 100] };
 
 function clampNum(v, lo, hi){ return Math.min(hi, Math.max(lo, v)); }
 
@@ -39,20 +132,31 @@ function mulberry32(a){
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+function icameSeed(key, entry){
+  const s = key + '|' + (entry.count || 0) + '|' + (entry.first || 0);
+  let h = 2166136261;
+  for(let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
 
 /* ---------- injected styles (no stylesheet edits needed) ---------- */
 (function injectICameStyle(){
   if(document.getElementById('icame-style')) return;
+  /* drip progress profiles: [percent, tail scale]; plateaus = the drip stalling */
   const profiles = [
-    [[0, .04], [30, .5], [42, .52], [100, 1]],
-    [[0, .04], [15, .25], [55, .8], [65, .82], [100, 1]],
-    [[0, .04], [60, .35], [70, .36], [100, 1]],
+    [[0, .04], [18, .12], [34, .5], [46, .52], [58, .55], [100, 1]],
+    [[0, .04], [10, .3], [26, .34], [70, .9], [78, .92], [100, 1]],
+    [[0, .04], [55, .2], [62, .6], [68, .62], [100, 1]],
+    [[0, .04], [8, .15], [40, .45], [52, .47], [85, .95], [100, 1]],
+    [[0, .04], [30, .2], [36, .58], [40, .6], [74, .8], [100, 1]],
+    [[0, .04], [14, .4], [22, .43], [36, .6], [52, .64], [64, .92], [100, 1]],
   ];
   let kf = '';
   profiles.forEach((pr, i) => {
     kf += `@keyframes icameTail${i}{${pr.map(([t, s]) => `${t}%{transform:scaleY(${s})}`).join('')}}`;
     kf += `@keyframes icameBulb${i}{${pr.map(([t, s]) => `${t}%{transform:translateY(calc(var(--len) * ${(-(1 - s)).toFixed(2)}))}`).join('')}}`;
   });
+  kf += `@keyframes icameDet{0%,80%{opacity:0;transform:translateY(calc(var(--gap) * -1))}86%{opacity:1}100%{opacity:1;transform:translateY(0)}}`;
   let dripCss = '';
   profiles.forEach((_, i) => {
     dripCss += `.icame-splat.is-new .icame-drip.v${i} .dt{animation-name:icameTail${i}}.icame-splat.is-new .icame-drip.v${i} .db{animation-name:icameBulb${i}}`;
@@ -69,6 +173,7 @@ function mulberry32(a){
 .icame-splat.is-new .icame-drip{ animation:none !important; transform:none !important; }
 .icame-drip .dt{ transform-box:fill-box; transform-origin:50% 0; }
 .icame-splat.is-new .icame-drip .dt, .icame-splat.is-new .icame-drip .db{ animation-duration:var(--dur); animation-delay:var(--dl); animation-timing-function:cubic-bezier(.3,.1,.5,1); animation-fill-mode:both; }
+.icame-splat.is-new .icame-drip .dd{ animation:icameDet var(--dur) var(--dl) cubic-bezier(.4,0,.8,1) both; }
 ${dripCss}
 ${kf}
 .pin-icame-layer{ position:absolute; inset:0; z-index:2; pointer-events:none; overflow:hidden; }
@@ -110,6 +215,7 @@ function ensureICameDefs(){
       <feMerge><feMergeNode in="dark"/><feMergeNode in="light"/><feMergeNode in="outline"/></feMerge>
     </filter>
     <filter id="icameGoo" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceGraphic" stdDeviation="2.4" result="b"/><feColorMatrix in="b" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"/></filter>
+    <filter id="icameGooFine" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceGraphic" stdDeviation="1.0" result="b"/><feColorMatrix in="b" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 14 -4.5"/></filter>
   </defs></svg>`;
   document.body.appendChild(d);
 }
@@ -124,93 +230,146 @@ function smoothClosedPath(pts, dg = 1){
   return d + 'Z';
 }
 
-/* ---------- realistic splat geometry (100x100 box) ----------
-   ang = direction of travel (radians), dripAmt = 0..100 */
-function splatShapes(seed, ang, dripAmt){
+/* ==========================================================================
+   DEPOSIT + SATELLITE + DRIP GEOMETRY (100x100 box, absolute size set by splat.s)
+   seed/ang/dripAmt as before; o = { v: volume, sp: impact speed 0..1.2,
+   m: material key, el: elongation }.  Old saved splats without o still render.
+   ========================================================================== */
+function angDiff(a, b){ const d = a - b; return Math.atan2(Math.sin(d), Math.cos(d)); }
+
+function splatShapes(seed, ang, dripAmt, o){
+  o = o || {};
   const rand = mulberry32(seed);
   const f = v => v.toFixed(1);
-  const ra = rand();
-  const a = typeof ang === 'number' ? ang : ra * Math.PI * 2;
+  const mat = icameMaterial(o.m);
+  const vol = o.v != null ? o.v : 0.8;
+  const sp = o.sp != null ? o.sp : 0.5;
+  const a = typeof ang === 'number' ? ang : rand() * Math.PI * 2;
   const cx = 50, cy = 50;
-  const ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux;
-  const R = 10 + rand() * 5;
-  const shapes = [], strands = [], hl = [], drips = [];
+  const ux = Math.cos(a), uy = Math.sin(a);
+  const el = o.el != null ? o.el : 1 + 0.45 * sp * (1 - mat.visc * 0.5);
+  const shapes = [], hl = [], drips = [];
+  const hasCore = vol > 0.09;
+  let R = 0, pts = null;
 
-  /* main body: lumpy, stretched along the shot */
-  const p1 = rand() * 6.28, p2 = rand() * 6.28, p3 = rand() * 6.28;
-  const pts = [];
-  for(let i = 0; i < 18; i++){
-    const th = i / 18 * Math.PI * 2;
-    const wob = 1 + 0.16 * Math.sin(3 * th + p1) + 0.11 * Math.sin(5 * th + p2) + 0.07 * Math.sin(8 * th + p3);
-    const r = R * wob * (1 + 0.12 * Math.cos(2 * (th - a)));
-    pts.push([cx + Math.cos(th) * r, cy + Math.sin(th) * r]);
-  }
-  shapes.push(`<path d="${smoothClosedPath(pts)}"/>`);
-
-  /* merged secondary lobes (separate pulses landing close together) */
-  const lobes = 2 + Math.floor(rand() * 2);
-  for(let l = 0; l < lobes; l++){
-    const off = R * (0.5 + rand() * 0.9) * (rand() < 0.5 ? -1 : 1);
-    const lx = cx + ux * off * 0.8 + px * (rand() - 0.5) * R * 0.9;
-    const ly = cy + uy * off * 0.8 + py * (rand() - 0.5) * R * 0.9;
-    const lr = R * (0.35 + rand() * 0.35), ph = rand() * 6.28, q = [];
-    for(let i = 0; i < 9; i++){
-      const th = i / 9 * Math.PI * 2, w = 1 + 0.2 * Math.sin(3 * th + ph);
-      q.push([lx + Math.cos(th) * lr * w, ly + Math.sin(th) * lr * w * 0.85]);
+  if(hasCore){
+    /* ---- central deposit: irregular boundary (3 octaves + a few fingers) ---- */
+    R = 7 + 5 * Math.min(1, vol / 0.5) + rand() * 3;
+    const N = 30, rg = mat.ragged;
+    const ph = [rand() * 6.28, rand() * 6.28, rand() * 6.28, rand() * 6.28];
+    const nf = Math.floor(rand() * (1 + 3 * rg * (0.4 + sp)));
+    const fingers = [];
+    for(let i = 0; i < nf; i++) fingers.push({ th: a + (rand() - 0.5) * 2.4 + (rand() < 0.3 ? Math.PI : 0), len: (0.2 + rand() * 0.55) * rg * (0.5 + sp), wid: 0.18 + rand() * 0.25 });
+    pts = [];
+    for(let i = 0; i < N; i++){
+      const th = i / N * Math.PI * 2;
+      let wob = 1 + rg * (0.10 * Math.sin(3 * th + ph[0]) + 0.07 * Math.sin(5 * th + ph[1]) + 0.05 * Math.sin(9 * th + ph[2]) + 0.03 * Math.sin(14 * th + ph[3]));
+      for(const fg of fingers){ const d = angDiff(th, fg.th); wob += fg.len * Math.exp(-(d / fg.wid) * (d / fg.wid)); }
+      const c = Math.cos(th - a);
+      const r = R * wob * (1 + (el - 1) * c * c) / (1 + (el - 1) * 0.3);
+      pts.push([cx + Math.cos(th) * r, cy + Math.sin(th) * r]);
     }
-    shapes.push(`<path d="${smoothClosedPath(q)}"/>`);
+    shapes.push(`<path d="${smoothClosedPath(pts)}"/>`);
+
+    /* merged secondary lobes: only bigger volumes arrive in several pulses */
+    const lobes = vol > 0.45 ? Math.min(3, 1 + Math.floor(rand() * (1 + vol))) : 0;
+    for(let l = 0; l < lobes; l++){
+      const th0 = a + (rand() - 0.5) * 3.2;
+      const dd = R * (0.7 + rand() * 0.8);
+      const lx = cx + Math.cos(th0) * dd, ly = cy + Math.sin(th0) * dd;
+      const lr = R * (0.28 + rand() * 0.3), ph2 = rand() * 6.28, q = [];
+      for(let i = 0; i < 9; i++){
+        const th = i / 9 * Math.PI * 2, w = 1 + 0.22 * Math.sin(3 * th + ph2);
+        q.push([lx + Math.cos(th) * lr * w, ly + Math.sin(th) * lr * w * 0.85]);
+      }
+      shapes.push(`<path d="${smoothClosedPath(q)}"/>`);
+    }
+  } else {
+    /* tiny volume: an isolated droplet (slightly squashed along the shot) */
+    const r = 2.4 + Math.sqrt(Math.max(0, vol)) * 14;
+    const sx = r * (1 + 0.25 * sp * rand() + 0.1), sy = r * (0.85 + rand() * 0.2);
+    shapes.push(`<ellipse cx="${cx}" cy="${cy}" rx="${f(sx)}" ry="${f(sy)}" transform="rotate(${f(a * 180 / Math.PI)} ${cx} ${cy})"/>`);
   }
 
-  /* a few tiny droplets close to the body (all around, not streaming off one side) */
-  const m = 3 + Math.floor(rand() * 4);
-  for(let i = 0; i < m; i++){
-    const th = rand() * Math.PI * 2;
-    const d = R * (1.25 + rand() * 0.7);
-    const sx = cx + Math.cos(th) * d, sy = cy + Math.sin(th) * d;
-    const r = 0.6 + rand() * 1.3;
-    shapes.push(`<ellipse cx="${f(sx)}" cy="${f(sy)}" rx="${f(r * 1.2)}" ry="${f(r)}" transform="rotate(${f(th * 180 / Math.PI)} ${f(sx)} ${f(sy)})"/>`);
+  /* ---- satellites: many tiny, few mid-sized; varied distance & direction ---- */
+  const base = hasCore ? Math.sqrt(vol) * (1.5 + 6 * sp) * rand() : rand() * 2;
+  const ns = Math.round(mat.sat * base);
+  const R0 = hasCore ? R : 4;
+  for(let i = 0; i < ns; i++){
+    const th = rand() < 0.65 ? a + (rand() - 0.5) * (1.6 + 1.2 * (1 - sp)) : rand() * Math.PI * 2;
+    const dist = R0 * (1.25 + Math.pow(rand(), 1.4) * (0.9 + 1.8 * sp * (1 - mat.visc * 0.6)));
+    const r = 0.5 + Math.pow(rand(), 2.6) * 3.2 * (0.6 + Math.min(1, vol) * 0.6);
+    const sx = clampNum(cx + Math.cos(th) * dist, 3, 97), sy = clampNum(cy + Math.sin(th) * dist, 3, 97);
+    const rot = th * 180 / Math.PI;
+    shapes.push(`<ellipse cx="${f(sx)}" cy="${f(sy)}" rx="${f(r * (1 + sp * rand() * 0.9))}" ry="${f(r)}" transform="rotate(${f(rot)} ${f(sx)} ${f(sy)})"/>`);
+    if(r > 1.3 && rand() < 0.4){   // tadpole tail pointing back toward the deposit
+      const tx = sx - Math.cos(th) * r * 2.6, ty = sy - Math.sin(th) * r * 2.6;
+      shapes.push(`<path d="M${f(sx + Math.sin(th) * r * 0.7)} ${f(sy - Math.cos(th) * r * 0.7)} L${f(tx)} ${f(ty)} L${f(sx - Math.sin(th) * r * 0.7)} ${f(sy + Math.cos(th) * r * 0.7)}Z"/>`);
+    }
   }
 
-  /* specular glints */
-  hl.push(`<path d="M${f(cx - R * 0.6)} ${f(cy - R * 0.2)} Q${f(cx - R * 0.25)} ${f(cy - R * 0.72)} ${f(cx + R * 0.3)} ${f(cy - R * 0.55)}" fill="none" stroke="#fff" stroke-opacity=".9" stroke-width="1.3" stroke-linecap="round"/>`);
-  hl.push(`<ellipse cx="${f(cx - R * 0.32)}" cy="${f(cy - R * 0.38)}" rx="${f(R * 0.2)}" ry="${f(R * 0.09)}" fill="#fff" fill-opacity=".95" transform="rotate(-28 ${f(cx - R * 0.32)} ${f(cy - R * 0.38)})"/>`);
-  hl.push(`<circle cx="${f(cx + R * 0.45)}" cy="${f(cy + R * 0.35)}" r="${f(R * 0.07)}" fill="#fff" fill-opacity=".8"/>`);
+  /* ---- subtle highlights ---- */
+  if(hasCore){
+    const k = mat.sheen;
+    hl.push(`<path d="M${f(cx - R * 0.55)} ${f(cy - R * 0.2)} Q${f(cx - R * 0.25)} ${f(cy - R * 0.65)} ${f(cx + R * 0.25)} ${f(cy - R * 0.5)}" fill="none" stroke="#fff" stroke-opacity="${(0.55 * k).toFixed(2)}" stroke-width="1" stroke-linecap="round"/>`);
+    if(vol > 0.4) hl.push(`<ellipse cx="${f(cx - R * 0.3)}" cy="${f(cy - R * 0.35)}" rx="${f(R * 0.14)}" ry="${f(R * 0.06)}" fill="#fff" fill-opacity="${(0.6 * k).toFixed(2)}" transform="rotate(-28 ${f(cx - R * 0.3)} ${f(cy - R * 0.35)})"/>`);
+  }
 
-  /* random liquidy drips: different count / length / width / speed / stalls */
+  /* ---- drips: optional; depend on volume, material, gravity (surface tilt) ---- */
   const da = clampNum(dripAmt == null ? 70 : dripAmt, 0, 100) / 100;
-  const nd = Math.round(da * (0.6 + rand() * 2.6));
-  for(let d = 0; d < nd; d++){
-    const th = Math.PI * (0.22 + rand() * 0.56);
-    const dx0 = cx + Math.cos(th) * R * 0.55, dy0 = cy + Math.sin(th) * R * 0.5;
-    const L = 6 + Math.pow(rand(), 1.6) * 40 * (0.5 + da);
-    const w = 0.9 + rand() * 1.7, wb = w * (1.15 + rand() * 0.5) + 0.3;
-    const jit = (rand() - 0.5) * 1.4;
-    const dur = (2.5 + rand() * 9).toFixed(1), dl = (0.5 + rand() * 2).toFixed(1);
-    const v = Math.floor(rand() * 3);
-    drips.push(
-      `<g class="icame-drip v${v}" style="--len:${f(L)}px;--dur:${dur}s;--dl:${dl}s">` +
-      `<path class="dt" d="M${f(dx0 - w)} ${f(dy0)} Q${f(dx0 - w * 0.8 + jit)} ${f(dy0 + L * 0.5)} ${f(dx0 - w * 0.5)} ${f(dy0 + L)} L${f(dx0 + w * 0.5)} ${f(dy0 + L)} Q${f(dx0 + w * 0.8 + jit)} ${f(dy0 + L * 0.5)} ${f(dx0 + w)} ${f(dy0)}Z" fill="#f6f3ea"/>` +
-      `<circle class="db" cx="${f(dx0)}" cy="${f(dy0 + L)}" r="${f(wb)}" fill="#f6f3ea"/>` +
-      `</g>`
-    );
+  const grav = ICAME_PHYS.tilt;
+  if(hasCore && grav > 0.05 && vol > 0.18 && da > 0){
+    const load = (vol - 0.18) * (1.1 + (1 - mat.visc) * 0.6) * da * grav;
+    if(rand() < Math.min(0.92, 0.12 + load * 0.9)){
+      const nd = 1 + Math.floor(rand() * Math.min(3, 1 + load * 2.2));
+      const cand = [];
+      pts.forEach((p, i) => { const th = i / pts.length * Math.PI * 2; if(Math.sin(th) > 0.25) cand.push(i); });
+      const used = new Set();
+      for(let d = 0; d < nd && cand.length; d++){
+        const ci = Math.floor(rand() * cand.length);
+        const idx = cand[ci];
+        if(used.has(idx) || used.has(idx - 1) || used.has(idx + 1)) continue;
+        used.add(idx);
+        const x0 = cx + (pts[idx][0] - cx) * 0.82, y0 = cy + (pts[idx][1] - cy) * 0.82;
+        const L = R * (0.35 + Math.pow(rand(), 1.5) * (1.4 + vol * 1.1) * mat.dripLen);
+        const w = R * (0.045 + rand() * 0.09) * (0.7 + mat.visc * 0.7);
+        const wb = w * (1.15 + rand() * 0.6) + 0.25;
+        const dur = ((3.5 + rand() * 9) / (mat.dripSpeed * (0.6 + 0.8 * grav))).toFixed(1);
+        const dl = (0.6 + Math.pow(rand(), 2) * 7).toFixed(1);
+        const vv = Math.floor(rand() * 6);
+        const jit = (rand() - 0.5) * 1.6;
+        const detach = L > R * 0.9 && rand() < 0.35 * (1.2 - mat.visc);
+        const gap = detach ? wb * (3 + rand() * 5) : 0;
+        drips.push(
+          `<g class="icame-drip v${vv}" style="--len:${f(L)}px;--gap:${f(gap)}px;--dur:${dur}s;--dl:${dl}s">` +
+          `<path class="dt" d="M${f(x0 - w)} ${f(y0)} Q${f(x0 - w * 0.7 + jit)} ${f(y0 + L * 0.55)} ${f(x0 - w * 0.42)} ${f(y0 + L)} L${f(x0 + w * 0.42)} ${f(y0 + L)} Q${f(x0 + w * 0.7 + jit)} ${f(y0 + L * 0.55)} ${f(x0 + w)} ${f(y0)}Z" fill="${mat.color}"/>` +
+          `<circle class="db" cx="${f(x0 + jit * 0.3)}" cy="${f(y0 + L)}" r="${f(wb)}" fill="${mat.color}"/>` +
+          (detach ? `<circle class="dd" cx="${f(x0 + jit * 0.3)}" cy="${f(y0 + L + gap)}" r="${f(wb * 0.5)}" fill="${mat.color}"/>` : '') +
+          `</g>`
+        );
+      }
+    }
   }
-  return { shapes: shapes.join(''), strands: strands.join(''), hl: hl.join(''), drips: drips.join('') };
+  return { shapes: shapes.join(''), strands: '', hl: hl.join(''), drips: drips.join('') };
 }
 
 const splatShapeCache = new Map();
-function splatShapesCached(seed, ang, dr){
-  const k = seed + '|' + (typeof ang === 'number' ? ang.toFixed(3) : 'r') + '|' + dr;
+function splatShapesCached(seed, ang, dr, o){
+  o = o || {};
+  const k = seed + '|' + (typeof ang === 'number' ? ang.toFixed(3) : 'r') + '|' + dr + '|' + (o.v || '') + '|' + (o.sp || '') + '|' + (o.m || '') + '|' + (o.el || '');
   let m = splatShapeCache.get(k);
-  if(!m){ m = splatShapes(seed, ang, dr); splatShapeCache.set(k, m); if(splatShapeCache.size > 400) splatShapeCache.delete(splatShapeCache.keys().next().value); }
+  if(!m){ m = splatShapes(seed, ang, dr, o); splatShapeCache.set(k, m); if(splatShapeCache.size > 400) splatShapeCache.delete(splatShapeCache.keys().next().value); }
   return m;
 }
 
-/* one splat's inner SVG: opaque glossy liquid with a soft shaded rim */
+/* one splat's inner SVG: material colour/opacity, soft shaded rim, subtle highlights */
 function splatInner(p, gi, c){
-  const sh = splatShapesCached(p.seed, p.a, p.dr);
-  return `<g fill="#f6f3ea">${sh.shapes}</g>` +                  // solid body
-    `<g fill="#ffffff" filter="url(#icameRim)">${sh.shapes}</g>` + // shading: dark inner edge, bright inner edge, outline
-    sh.strands + sh.hl + sh.drips;
+  const mat = icameMaterial(p.m);
+  const sh = splatShapesCached(p.seed, p.a, p.dr, { v: p.v, sp: p.sp, m: p.m, el: p.el });
+  return `<g opacity="${mat.opacity.toFixed(2)}">` +
+    `<g fill="${mat.color}">${sh.shapes}</g>` +
+    (ICAME_OUTLINE ? `<g fill="#ffffff" filter="url(#icameRim)" opacity="${(0.5 + 0.3 * mat.visc).toFixed(2)}">${sh.shapes}</g>` : '') +
+    sh.strands + sh.hl + sh.drips + `</g>`;
 }
 
 /* ---------- the button / sidebar icon: a realistic splat glyph ---------- */
@@ -260,6 +419,10 @@ function loadICameSettings(){
       if(isFinite(h) && h >= 0) d.cooldownHours = h;
       if(typeof raw.showSplats === 'boolean') d.showSplats = raw.showSplats;
       if(typeof raw.ropesRandom === 'boolean') d.ropesRandom = raw.ropesRandom;
+      if(raw.watery == null && raw.material && ICAME_WATERY_OF[raw.material] != null) d.watery = Math.round(ICAME_WATERY_OF[raw.material] * 100);   // migrate old fluid type
+      if(typeof raw.ageMode === 'boolean') d.ageMode = raw.ageMode;
+      const ag = Number(raw.age);
+      if(isFinite(ag) && ag >= 18) d.age = Math.min(100, Math.round(ag));
       if(raw.targetMode === 'specific' || raw.targetMode === 'anywhere') d.targetMode = raw.targetMode;
       d.targetPreset = resolveICameTargetPreset(raw.targetPreset);
       const nt = normalizeICameTarget(raw.target || ICAME_DEFAULTS.target);
@@ -281,7 +444,7 @@ function iCameCooldownMs(){
   return isFinite(h) && h > 0 ? h * 3600000 : 0;
 }
 
-/* { 'image:path': { count, last, first, splats: [{x,y,s,r,a,seed,dr,gl}] } } */
+/* { 'image:path': { count, last, first, splats: [{x,y,s,r,a,seed,dr,v,sp,m,el}] } } */
 function loadICame(){
   try{
     const raw = JSON.parse(localStorage.getItem(ICAME_KEY) || '{}');
@@ -333,10 +496,18 @@ function preferredICameTarget(){
   if(presetKey !== 'custom') return normalizeICameTarget(ICAME_BODY_PART_PRESETS[presetKey]) || null;
   return normalizeICameTarget(state.iCameSettings.target) || normalizeICameTarget(ICAME_DEFAULTS.target) || null;
 }
+/* Which area a press uses — one clear rule, so the picked preset is never overridden:
+   anywhere → none · a body-part preset → that preset · custom → this photo's own area
+   (if it has one) else the saved custom area. */
+function icameResolveTarget(entry){
+  const S = state.iCameSettings;
+  if(!S || S.targetMode !== 'specific') return null;
+  const key = resolveICameTargetPreset(S.targetPreset);
+  if(key !== 'custom') return normalizeICameTarget(ICAME_BODY_PART_PRESETS[key]);
+  return normalizeICameTarget(entry && entry.target) || normalizeICameTarget(S.target) || normalizeICameTarget(ICAME_DEFAULTS.target);
+}
 function iCameTargetForItem(item){
-  const e = iCameEntry(item);
-  if(!e) return preferredICameTarget();
-  return normalizeICameTarget(e.target) || preferredICameTarget();
+  return icameResolveTarget(iCameEntry(item));
 }
 function setICameTargetForItem(item, target){
   if(!item) return;
@@ -358,32 +529,42 @@ function targetAreaRect(target, width, height){
   const ty = target ? (height * target.y) : 0;
   return { left: tx, top: ty, width: tw, height: th };
 }
-function newSplat(existing, target = null){
+
+/* box size (fraction of the shorter image side) for a deposit of volume v */
+function icameDepositScale(v, sp, mat, sizeF){
+  return Math.min(0.9, (0.05 + 0.16 * Math.sqrt(Math.max(0, v))) * (0.88 + 0.3 * sp) * Math.sqrt(mat.spread) * sizeF);
+}
+
+/* position picker (also used to backfill old counts); rng defaults to Math.random */
+function newSplat(existing, target = null, rng = Math.random){
   const preferred = target || preferredICameTarget();
   let best = null, bestGap = -1;
   for(let i = 0; i < 8; i++){
-    const x = preferred ? preferred.x + Math.random() * preferred.w : (0.1 + Math.random() * 0.8);
-    const y = preferred ? preferred.y + Math.random() * preferred.h : (0.1 + Math.random() * 0.8);
+    const x = preferred ? preferred.x + rng() * preferred.w : (0.1 + rng() * 0.8);
+    const y = preferred ? preferred.y + rng() * preferred.h : (0.1 + rng() * 0.8);
     const gap = (existing || []).reduce((g, p) => Math.min(g, Math.hypot(p.x - x, p.y - y)), 9);
     if(gap > bestGap){ bestGap = gap; best = { x, y }; }
     if(gap > 0.28) break;
   }
   const S = state.iCameSettings;
+  const matKey = +icameEffective().watery.toFixed(2);
+  const mat = icameMaterial(matKey);
+  const v = 0.3 + rng() * 0.6, sp = 0.35 + rng() * 0.4;
   return {
     x: +Math.min(0.98, Math.max(0.02, best.x)).toFixed(4),
     y: +Math.min(0.98, Math.max(0.02, best.y)).toFixed(4),
-    s: +Math.min(0.9, (0.24 + Math.random() * 0.16) * S.size / 100).toFixed(3),
-    r: Math.round(Math.random() * 360),
-    a: +(Math.random() * Math.PI * 2).toFixed(3),
-    seed: 1 + Math.floor(Math.random() * 1e9),
-    dr: S.drips,
+    s: +icameDepositScale(v, sp, mat, S.size / 100).toFixed(3),
+    r: Math.round(rng() * 360),
+    a: +(rng() * Math.PI * 2).toFixed(3),
+    seed: 1 + Math.floor(rng() * 1e9),
+    dr: S.drips, v: +v.toFixed(3), sp: +sp.toFixed(2), m: matKey,
   };
 }
 function ensureSplats(entry){
   if(!entry) return false;
   if(!Array.isArray(entry.splats)) entry.splats = [];
   let changed = false;
-  while(entry.splats.length < (entry.count || 0)){ entry.splats.push(newSplat(entry.splats, normalizeICameTarget(entry.target))); changed = true; }
+  while(entry.splats.length < (entry.count || 0)){ entry.splats.push(newSplat(entry.splats, icameResolveTarget(entry))); changed = true; }
   return changed;
 }
 
@@ -430,7 +611,7 @@ function ensureSplatLayer(){
   return layer;
 }
 
-/* while a shot is in flight its splats stay hidden until their rope lands */
+/* while a shot is in flight its splats stay hidden until their parcels land */
 let splatHold = null; // { key, from, shown:Set<globalIndex> }
 
 function renderFocusSplats(item = iCameFocusItem, animateNewest = false){
@@ -455,12 +636,12 @@ function renderFocusSplats(item = iCameFocusItem, animateNewest = false){
   const offset = entry.splats.length - shown.length;
   const hold = splatHold && splatHold.key === favKey(item) ? splatHold : null;
   const draft = item && iCameFocusItem && favKey(item) === favKey(iCameFocusItem) && iCameTargetSelection && iCameTargetSelection.draft ? iCameTargetSelection.draft : null;
-  const target = draft || iCameTargetForItem(item);
+  const target = draft;   // the outline box only shows while you are drawing the area
   const targetMarkup = target ? `<div class="icame-target-box" style="left:${(target.x * w).toFixed(1)}px;top:${(target.y * h).toFixed(1)}px;width:${(target.w * w).toFixed(1)}px;height:${(target.h * h).toFixed(1)}px"></div>` : '';
   layer.innerHTML = shown.map((p, i) => {
     const gi = offset + i;
     const hidden = !!(hold && gi >= hold.from && !hold.shown.has(gi));
-    const px = Math.max(18, p.s * m);
+    const px = Math.max(8, p.s * m);
     const isNew = animateNewest && i === shown.length - 1;
     return `<svg class="icame-splat${isNew ? ' is-new' : ''}${hidden ? ' is-hidden' : ''}" data-i="${gi}" viewBox="0 0 100 100" style="left:${(p.x * w - px / 2).toFixed(1)}px;top:${(p.y * h - px / 2).toFixed(1)}px;width:${px.toFixed(1)}px;height:${px.toFixed(1)}px${hidden ? ';visibility:hidden' : ''}">${splatInner(p, gi)}</svg>`;
   }).join('') + targetMarkup;
@@ -480,21 +661,219 @@ function queueSplatLayout(){
   window.addEventListener('resize', queueSplatLayout);
 })();
 
-function revealSplat(item, gi){
+/* reveal at first contact; dur lets the deposit keep growing while the rest of its rope lands */
+function revealSplat(item, gi, dur){
   if(splatHold) splatHold.shown.add(gi);
   if(!iCameFocusItem || favKey(iCameFocusItem) !== favKey(item)) return;
   const el = document.querySelector(`#focusSplatLayer .icame-splat[data-i="${gi}"]`);
-  if(el){ el.style.visibility = ''; el.classList.remove('is-hidden'); el.classList.add('is-new'); }
+  if(el){
+    el.style.visibility = ''; el.classList.remove('is-hidden');
+    if(dur) el.style.animationDuration = dur.toFixed(2) + 's';
+    el.classList.add('is-new');
+  }
 }
 
-/* --------------------------------------------------------------------------
-   The shot.
-   Each rope is a chain of particles on a gravity arc. Particles differ in
-   size (thick head → noisy, thinning body → tiny trailing beads) and in
-   speed, so the rope stretches in flight. Neighbouring particles are joined by
-   thin threads that get thinner as they stretch and finally snap, like
-   surface-tension liquid. Ropes are fired strictly one after another.
+/* ==========================================================================
+   THE SHOT — independent systems
+   1 icameEmit            stream motion (parcels: mass, speed, direction)
+   2 icameLinks           threads, necking, breakup, in-flight satellites
+   3 icameState/Detect    flight state + collision with the photo plane
+   4 icameDeposits        impact deposits from what actually landed
+   5 (splatShapes above)  satellites around deposit + gravity-driven drips
    -------------------------------------------------------------------------- */
+
+/* 1) EMITTER ----------------------------------------------------------------
+   Aims the rope's centre at (aimX,aimY). Flight time is capped so shots to
+   targets above the origin never overshoot with a huge arc. Parcels differ in
+   mass (pulses, fat head, thin tail), launch time (flow-rate dependent gaps),
+   speed (head fast, tail slow, plus noise) and heading (slow wobble). Faster
+   parcels arrive sooner and therefore drop less — that comes from the physics. */
+function icameEmit(rnd, o){
+  const G = ICAME_PHYS.gravity, mat = o.mat;
+  const dx = o.aimX - o.ox, dy = o.aimY - o.oy, dist = Math.hypot(dx, dy);
+  let Tb = clampNum(dist / 1500, 0.24, 0.6);
+  if(dy < 0) Tb = Math.min(Tb, 0.85 * Math.sqrt(2 * -dy / G));   // no overshooting apex
+  Tb = clampNum(Tb * (0.94 + rnd() * 0.12), 0.2, 0.65);
+  const vxb = dx / Tb, vyb = (dy - 0.5 * G * Tb * Tb) / Tb;
+
+  const V = (0.22 + 0.78 * Math.pow(o.power, 1.3)) * o.amountF * (0.7 + 0.6 * rnd());   // rope volume
+  const count = Math.round(clampNum(12 + 26 * Math.sqrt(V), 8, 64));
+  const dur = (0.12 + 0.2 * Math.sqrt(V)) * (0.8 + 0.4 * rnd());
+  const ph = [rnd() * 6.28, rnd() * 6.28, rnd() * 6.28, rnd() * 6.28, rnd() * 6.28];
+  const pf = 5 + rnd() * 6;
+  const wob = 0.025 + 0.03 * (1 - mat.visc) + 0.02 * (1 - Math.min(1, o.power));
+  const noise = f => 0.5 * Math.sin(f * 7 + ph[0]) + 0.3 * Math.sin(f * 17 + ph[1]) + 0.2 * Math.sin(f * 31 + ph[2]);
+
+  const q = [], gaps = [];
+  for(let k = 0; k < count; k++){
+    const f = count > 1 ? k / (count - 1) : 0.5;
+    const head = Math.exp(-Math.pow((f - 0.12) / 0.14, 2));
+    const pulse = 0.5 + 0.5 * Math.sin(f * pf + ph[3]);
+    let qk = 0.22 + 0.9 * head + 0.45 * pulse * (1 - f * 0.6);
+    qk *= Math.exp((rnd() - 0.5) * (0.8 + 0.6 * (1 - mat.visc)));
+    if(f > 0.8) qk *= (1 - f) * 3.2 + 0.15;                      // thinning tail
+    q.push(Math.max(0.03, qk));
+    gaps.push((0.4 + rnd() * 1.2) / (0.35 + qk));                // heavy flow → tight spacing
+  }
+  const qs = q.reduce((a, b) => a + b, 0), gs = gaps.reduce((a, b) => a + b, 0);
+  const ps = [];
+  let tl = 0;
+  for(let k = 0; k < count; k++){
+    const f = count > 1 ? k / (count - 1) : 0.5;
+    const m = V * q[k] / qs;
+    const rm = m * count / V;
+    const sp = clampNum(1.07 - 0.14 * f + noise(f) * 0.05 + (rnd() - 0.5) * 0.07, 0.85, 1.15);
+    const th = wob * (0.6 * Math.sin(f * 3.1 + ph[4]) + 0.4 * Math.sin(f * 8.3 + ph[0])) + (rnd() - 0.5) * 0.006;
+    const c = Math.cos(th), s = Math.sin(th);
+    const T = Tb / sp;
+    const x0 = o.ox + (rnd() - 0.5) * 4, y0 = o.oy + (rnd() - 0.5) * 4;
+    let vx = (vxb * c - vyb * s) * sp, vy = (vxb * s + vyb * c) * sp;
+    const lx = x0 + vx * T, ly = y0 + vy * T + 0.5 * G * T * T;
+    ps.push({
+      ts: o.t0 + tl, T, x0, y0, vx, vy, lx, ly, m,
+      w: Math.max(0.7, o.px * 2.6 * Math.sqrt(rm) * (0.55 + 0.55 * Math.sqrt(V))),
+      landed: false, f
+    });
+    tl += dur * gaps[k] / gs;
+  }
+  /* Keep the rope centred on the aim point (speed/heading scatter would otherwise drift it)
+     and inside the chosen area, then re-derive velocities so flight and landing agree. */
+  const wsum = ps.reduce((s, p) => s + p.m, 0) || 1;
+  const mx = ps.reduce((s, p) => s + p.lx * p.m, 0) / wsum, my = ps.reduce((s, p) => s + p.ly * p.m, 0) / wsum;
+  const rect = o.rect;
+  ps.forEach(p => {
+    p.lx = clampNum(p.lx + (o.aimX - mx), rect.l, rect.r);
+    p.ly = clampNum(p.ly + (o.aimY - my), rect.t, rect.b);
+    p.vx = (p.lx - p.x0) / p.T;
+    p.vy = (p.ly - p.y0 - 0.5 * G * p.T * p.T) / p.T;
+  });
+  return { ps, extra: [], links: [], all: ps, V, dur, t0: o.t0, rect };
+}
+
+/* 2) LINKS ------------------------------------------------------------------
+   Thread k joins parcel k and k+1. Because flight is closed-form we can find the
+   exact moment the separation exceeds the break length: thin fluids and thin
+   (low-mass) parcels snap early, thick fluids hold longer. A snap may shed a tiny
+   droplet that flies on independently. */
+function icamePos(p, t, G){
+  const age = t - p.ts;
+  if(age < 0) return null;
+  if(age >= p.T) return { x: p.lx, y: p.ly, vx: 0, vy: 0, landed: true };
+  return { x: p.x0 + p.vx * age, y: p.y0 + p.vy * age + 0.5 * G * age * age, vx: p.vx, vy: p.vy + G * age, landed: false };
+}
+function icameLinks(rope, mat, rnd, G, B, px){
+  const ps = rope.ps;
+  for(let k = 0; k < ps.length - 1; k++){
+    const a = ps[k], b = ps[k + 1];
+    const wmin = Math.min(a.w, b.w), wmax = Math.max(a.w, b.w);
+    const Lb = (5 + 5.5 * wmin + 2.2 * wmax) * mat.breakLen * (0.65 + rnd() * 0.7) * px;
+    let br = Infinity;
+    const tEnd = Math.max(a.ts + a.T, b.ts + b.T);
+    for(let t = b.ts; t <= tEnd; t += 1 / 90){
+      const A = icamePos(a, t, G), Bp = icamePos(b, t, G);
+      if(Math.hypot(A.x - Bp.x, A.y - Bp.y) > Lb){ br = t; break; }
+    }
+    rope.links.push({ br, Lb });
+    if(isFinite(br) && rnd() < 0.25 + 0.5 * (1 - mat.visc)){
+      const A = icamePos(a, br, G), Bp = icamePos(b, br, G);
+      if(A && Bp && !A.landed && !Bp.landed){
+        const rem = Math.min(a.ts + a.T, b.ts + b.T) - br;
+        if(rem > 0.05){
+          const T = rem * (0.92 + rnd() * 0.2);
+          const vx = (A.vx + Bp.vx) / 2 + (rnd() - 0.5) * 90, vy = (A.vy + Bp.vy) / 2 + (rnd() - 0.5) * 70;
+          const x0 = (A.x + Bp.x) / 2, y0 = (A.y + Bp.y) / 2;
+          const lx = x0 + vx * T, ly = y0 + vy * T + 0.5 * G * T * T;
+          const rc = rope.rect;
+          if(lx > rc.l && lx < rc.r && ly > rc.t && ly < rc.b){
+            const m = (a.m + b.m) * 0.06 * (0.5 + rnd());
+            rope.extra.push({ ts: br, T, x0, y0, vx, vy, lx, ly, m, w: Math.max(0.7, wmin * (0.5 + 0.3 * rnd())), landed: false, sat: true, f: 1 });
+          }
+        }
+      }
+    }
+  }
+  rope.all = rope.ps.concat(rope.extra);
+}
+
+/* 3) STATE + COLLISION -------------------------------------------------------- */
+function icameState(p, t, G){
+  const s = icamePos(p, t, G);
+  if(!s) return null;
+  const age = t - p.ts;
+  s.w = s.landed ? p.w * 0.6 : p.w * (1 - 0.25 * age / p.T);
+  return s;
+}
+/* a parcel touches the photo exactly when its flight time ends */
+function icameDetectContacts(rope, t, G){
+  const ev = [];
+  for(const p of rope.all){
+    if(!p.landed && t >= p.ts + p.T){
+      p.landed = true;
+      ev.push({ p, vx: p.vx, vy: p.vy + G * p.T });
+    }
+  }
+  return ev;
+}
+
+/* 4) DEPOSITS -----------------------------------------------------------------
+   Built from what really lands: centroid, delivered volume, impact velocity and the
+   landing scatter. Parcels still joined to the stream when they land form the main
+   deposit (plus close-by droplets); stragglers that land far away become separate
+   droplet deposits (max 4 per rope). */
+function icameDeposits(rope, B, mat, matKey, S, rnd, G, force = 1){
+  const all = rope.all, m = Math.min(B.width, B.height), sizeF = S.size / 100;
+  const joined = new Set();
+  rope.ps.forEach((p, k) => {
+    const tl = p.ts + p.T, lb = rope.links[k], lf = rope.links[k - 1];
+    if((lb && lb.br > tl) || (lf && lf.br > tl)) joined.add(p);
+  });
+  let core = all.filter(p => joined.has(p));
+  if(!core.length) core = all.slice().sort((a, b) => b.m - a.m).slice(0, Math.ceil(all.length / 2));
+  const wsum = core.reduce((s, p) => s + p.m, 0) || 1;
+  const cx = core.reduce((s, p) => s + p.lx * p.m, 0) / wsum, cy = core.reduce((s, p) => s + p.ly * p.m, 0) / wsum;
+  const farR = 0.42 * m * icameDepositScale(wsum, 0.5, mat, sizeF);
+  const near = [], far = [];
+  all.forEach(p => (core.includes(p) || Math.hypot(p.lx - cx, p.ly - cy) < farR) ? near.push(p) : far.push(p));
+
+  const make = (ps, isMain) => {
+    const V = ps.reduce((s, p) => s + p.m, 0) || 0.001;
+    const x = ps.reduce((s, p) => s + p.lx * p.m, 0) / V, y = ps.reduce((s, p) => s + p.ly * p.m, 0) / V;
+    let ix = 0, iy = 0;
+    ps.forEach(p => { ix += p.vx * p.m; iy += (p.vy + G * p.T) * p.m; });
+    ix /= V; iy /= V;
+    const sp = clampNum(Math.hypot(ix, iy) / 1400 * force, 0.15, 1.1);
+    const s = icameDepositScale(V, sp, mat, sizeF);
+    let el = 1 + 0.45 * sp * (1 - mat.visc * 0.5);
+    if(isMain && ps.length > 3){
+      const ca = Math.cos(Math.atan2(iy, ix)), sa = Math.sin(Math.atan2(iy, ix));
+      let sl = 0, sq = 0;
+      ps.forEach(p => { const dx = p.lx - x, dy = p.ly - y; const u = dx * ca + dy * sa, w = -dx * sa + dy * ca; sl += u * u * p.m; sq += w * w * p.m; });
+      el += clampNum((Math.sqrt(sl / V) - Math.sqrt(sq / V)) / (0.25 * s * m), 0, 0.8);
+    }
+    return {
+      parcels: ps,
+      splat: {
+        x: +clampNum((x - B.left) / B.width, 0.02, 0.98).toFixed(4),
+        y: +clampNum((y - B.top) / B.height, 0.02, 0.98).toFixed(4),
+        s: +s.toFixed(3), r: Math.round(rnd() * 360),
+        a: +Math.atan2(iy, ix).toFixed(3),
+        seed: 1 + Math.floor(rnd() * 1e9), dr: S.drips,
+        v: +V.toFixed(3), sp: +sp.toFixed(2), m: matKey, el: +el.toFixed(2)
+      }
+    };
+  };
+  const groups = [make(near, true)];
+  const clusters = [], cr = 0.05 * m;
+  far.sort((a, b) => b.m - a.m).forEach(p => {
+    let best = null, bd = 1e9;
+    clusters.forEach(c => { const d = Math.hypot(c.x - p.lx, c.y - p.ly); if(d < bd){ bd = d; best = c; } });
+    if(best && (bd < cr || clusters.length >= 4)){ best.ps.push(p); best.x = (best.x * (best.ps.length - 1) + p.lx) / best.ps.length; best.y = (best.y * (best.ps.length - 1) + p.ly) / best.ps.length; }
+    else clusters.push({ x: p.lx, y: p.ly, ps: [p] });
+  });
+  clusters.forEach(c => groups.push(make(c.ps, false)));
+  return groups;
+}
+
 function iCameShoot(originEl, item){
   const key = favKey(item);
   const entry = iCameEntry(item);
@@ -504,38 +883,53 @@ function iCameShoot(originEl, item){
   const target = iCameTargetForItem(item);
   const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const box = img ? img.getBoundingClientRect() : null;
+  const haveBox = !!(box && box.width);
+  const B = haveBox ? box : { left: 0, top: 0, width: 800, height: 600 };
   const sb = originEl ? originEl.getBoundingClientRect() : null;
-  const ox = sb ? sb.left + sb.width / 2 : innerWidth / 2;
-  const oy = sb ? sb.top + sb.height / 2 : innerHeight / 2;
-  const clamp01 = v => Math.min(0.95, Math.max(0.05, v));
-  const sizeF = S.size / 100, amountF = S.amount / 100;
+  const ox = sb ? sb.left + sb.width / 2 : (haveBox ? B.left + B.width / 2 : 400);
+  const oy = sb ? sb.top + sb.height / 2 : (haveBox ? B.top + B.height : 700);
+  const E = icameEffective();           // settings, scaled by age when "Cum by age" is on
+  const matKey = +E.watery.toFixed(2);
+  const mat = icameMaterial(matKey);   // one material for the whole emission
+  const G = ICAME_PHYS.gravity;
+  const amountF = E.amount / 100;
+  const px = clampNum(Math.min(B.width, B.height) / 700, 0.6, 1.5);
+  const rnd = mulberry32(icameSeed(key, entry));
+  /* landing region in screen px: the chosen area (kept strictly inside), else the whole photo */
+  const rg = target || { x: 0, y: 0, w: 1, h: 1 };
+  const padX = target ? 0 : B.width * 0.015, padY = target ? 0 : B.height * 0.015;
+  const rect = { l: B.left + rg.x * B.width + padX, r: B.left + (rg.x + rg.w) * B.width - padX, t: B.top + rg.y * B.height + padY, b: B.top + (rg.y + rg.h) * B.height - padY };
 
-  /* 1) plan the ropes */
-  let n = Math.round(S.ropes);
-  if(S.ropesRandom) n += Math.round((Math.random() - 0.5) * 3) + (Math.random() < 0.3 ? 1 : 0);
+  /* 1) plan ropes, links, contacts and deposits up front (deterministic per press) */
+  let n = Math.round(E.ropes);
+  if(S.ropesRandom) n += Math.round((rnd() - 0.5) * 3) + (rnd() < 0.3 ? 1 : 0);
   n = Math.max(1, Math.min(12, n));
   const first = entry.splats.length;
-  const plans = [];
+  const newSplats = [], ropes = [], groups = [];
+  let cursor = 0;
   for(let i = 0; i < n; i++){
-    const power = Math.min(1.1, Math.max(0.35, 1 - (i / n) * 0.55 + (Math.random() - 0.5) * 0.3));
-    const spot = newSplat([...entry.splats, ...plans.map(p => p.splat)], target);
-    const dir = Math.random() * Math.PI * 2;
-    const len = 0.05 + Math.random() * 0.1;
-    const x0 = clamp01(spot.x - Math.cos(dir) * len / 2), y0 = clamp01(spot.y - Math.sin(dir) * len / 2);
-    const x1 = clamp01(spot.x + Math.cos(dir) * len / 2), y1 = clamp01(spot.y + Math.sin(dir) * len / 2);
-    spot.x = +((x0 + x1) / 2).toFixed(4);
-    spot.y = +((y0 + y1) / 2).toFixed(4);
-    spot.s = +Math.min(0.9, (0.2 + 0.16 * power) * sizeF).toFixed(3);
-    if(box){
-      const cx = box.left + spot.x * box.width, cy = box.top + spot.y * box.height;
-      spot.a = +(Math.atan2(cy - oy, cx - ox) + (Math.random() - 0.5) * 0.7).toFixed(3);
-    }
-    plans.push({ power, splat: spot, x0, y0, x1, y1, curve: (Math.random() - 0.5) * 0.07 });
+    const power = clampNum(1 - (i / n) * 0.6 + (rnd() - 0.5) * 0.35, 0.25, 1.1);
+    const spot = newSplat([...entry.splats, ...newSplats], target, rnd);
+    const rope = icameEmit(rnd, {
+      ox, oy, aimX: B.left + spot.x * B.width, aimY: B.top + spot.y * B.height,
+      power, amountF, mat, B, px, t0: cursor, rect
+    });
+    icameLinks(rope, mat, rnd, G, B, px);
+    icameDeposits(rope, B, mat, matKey, S, rnd, G, E.force).forEach(g => {
+      g.gi = first + newSplats.length;
+      newSplats.push(g.splat);
+      g.parcels.forEach(p => { p.gi = g.gi; });
+      g.t0 = Math.min(...g.parcels.map(p => p.ts + p.T));
+      g.t1 = Math.max(...g.parcels.map(p => p.ts + p.T));
+      groups.push(g);
+    });
+    ropes.push(rope);
+    cursor += rope.dur + 0.3 + rnd() * 0.5;                          // pause before the next rope
   }
-  plans.forEach(p => entry.splats.push(p.splat));
+  newSplats.forEach(s => entry.splats.push(s));
   saveICame();
 
-  if(!box || !box.width || reduced || !S.showSplats){
+  if(!haveBox || reduced || !S.showSplats){
     renderFocusSplats(item, true);
     return;
   }
@@ -555,58 +949,38 @@ function iCameShoot(originEl, item){
     x.lineCap = 'round'; x.lineJoin = 'round';
     return { c, x };
   };
-  const body = mk('filter:url(#icameGoo)');                // merged, opaque liquid
-  const glint = mk('opacity:.9');                          // specular glints on top
+  const body = mk((mat.goo ? 'filter:url(#icameGooFine);' : '') + `opacity:${mat.opacity}`);
+  const glint = mk(`opacity:${(0.5 * mat.sheen).toFixed(2)}`);
   const ctx = body.x, gx = glint.x;
-  ctx.strokeStyle = ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = ctx.fillStyle = mat.color;
   gx.strokeStyle = gx.fillStyle = '#ffffff';
 
-  /* 2) build the particle chains on one timeline */
-  const G = 2200;
-  const spread = Math.min(box.width, box.height) * 0.012;
-  const ropes = [];
+  const groupBy = new Map(groups.map(g => [g.gi, g]));
+  const revealed = new Set();
   const splash = [];
-  let cursor = 0;
-  plans.forEach((pl, i) => {
-    const count = Math.max(10, Math.round((26 + 26 * pl.power) * amountF * (0.85 + Math.random() * 0.3)));
-    const dur = (0.16 + 0.15 * pl.power) * (0.8 + Math.random() * 0.4);
-    const ph1 = Math.random() * 6.28, ph2 = Math.random() * 6.28, ph3 = Math.random() * 6.28;
-    const aimX = box.left + (pl.x0 + pl.x1) / 2 * box.width, aimY = box.top + (pl.y0 + pl.y1) / 2 * box.height;
-    const Tb = Math.min(0.75, Math.max(0.36, Math.hypot(aimX - ox, aimY - oy) / 1400)) + Math.random() * 0.05;
-    const ddx = pl.x1 - pl.x0, ddy = pl.y1 - pl.y0, dl = Math.hypot(ddx, ddy) || 1;
-    const perpx = -ddy / dl, perpy = ddx / dl;
-    const baseW = 3.2 * Math.sqrt(amountF) * (0.7 + 0.4 * pl.power);
-    const rope = { ps: [], landed: 0, gi: first + i };
-    for(let k = 0; k < count; k++){
-      const f = count > 1 ? k / (count - 1) : 0.5;
-      const prof = f < 0.14 ? 1.25 : 1 - 0.55 * f;                       // fat head, thinning body
-      const nz = 0.5 + 0.5 * (Math.sin(f * 9 + ph1) * 0.5 + Math.sin(f * 21 + ph2) * 0.3 + Math.sin(f * 47 + ph3) * 0.2);
-      const bead = f > 0.82;                                             // trailing beads
-      const w = Math.max(0.8, baseW * prof * (0.45 + 0.95 * nz) * (bead ? 0.5 : 1));
-      const sc = spread * (bead ? 3.5 : 1);
-      const sw = Math.sin(Math.PI * f) * pl.curve;
-      const lx = box.left + (pl.x0 + ddx * f + perpx * sw) * box.width + (Math.random() - 0.5) * sc;
-      const ly = box.top + (pl.y0 + ddy * f + perpy * sw) * box.height + (Math.random() - 0.5) * sc;
-      const sx = ox + (Math.random() - 0.5) * 5, sy = oy + (Math.random() - 0.5) * 5;
-      const T = Tb * (0.92 + 0.1 * f + (Math.random() - 0.5) * (bead ? 0.1 : 0.04));
-      rope.ps.push({
-        ts: cursor + dur * (f + 0.05 * Math.sin(f * 17 + ph2)),
-        T, x0: sx, y0: sy,
-        vx: (lx - sx) / T,
-        vy: (ly - sy - 0.5 * G * T * T) / T,
-        w, lx, ly, landed: false
-      });
-    }
-    ropes.push(rope);
-    cursor += dur + 0.28 + Math.random() * 0.45;                         // pause before the next rope
-  });
+  const endT = Math.max(...ropes.map(r => Math.max(...r.all.map(p => p.ts + p.T)))) + 0.05;
 
   const finish = () => {
-    ropes.forEach(r => revealSplat(item, r.gi));
+    groups.forEach(g => revealSplat(item, g.gi, (g.t1 - g.t0) + 0.35));
     splatHold = null;
     body.c.remove(); glint.c.remove();
   };
-  const failsafe = setTimeout(finish, Math.ceil((cursor + 3) * 1000));
+  const failsafe = setTimeout(finish, Math.ceil((endT + 3) * 1000));
+
+  /* lens-shaped thread: thick ends, neck in the middle */
+  const thread = (c, ax, ay, aw, bx, by, bw, neck) => {
+    const dx = bx - ax, dy = by - ay, d = Math.hypot(dx, dy);
+    if(d < 0.5) return;
+    const nx = -dy / d, ny = dx / d;
+    const ha = aw / 2, hb = bw / 2, hm = Math.max(0.2, Math.min(aw, bw) / 2 * neck);
+    const x1 = ax + dx / 3, y1 = ay + dy / 3, x2 = ax + dx * 2 / 3, y2 = ay + dy * 2 / 3;
+    c.beginPath();
+    c.moveTo(ax + nx * ha, ay + ny * ha);
+    c.bezierCurveTo(x1 + nx * hm, y1 + ny * hm, x2 + nx * hm, y2 + ny * hm, bx + nx * hb, by + ny * hb);
+    c.lineTo(bx - nx * hb, by - ny * hb);
+    c.bezierCurveTo(x2 - nx * hm, y2 - ny * hm, x1 - nx * hm, y1 - ny * hm, ax - nx * ha, ay - ny * ha);
+    c.closePath(); c.fill();
+  };
 
   const start = performance.now();
   let prev = start, done = false;
@@ -616,54 +990,50 @@ function iCameShoot(originEl, item){
     prev = now;
     ctx.clearRect(0, 0, innerWidth, innerHeight);
     gx.clearRect(0, 0, innerWidth, innerHeight);
-    let alive = false;
+    let alive = t < endT;
 
     for(const r of ropes){
-      let last = null;
-      for(const p of r.ps){
-        const age = t - p.ts;
-        if(age < 0){ alive = true; last = null; continue; }
-        if(age >= p.T){
-          if(!p.landed){
-            p.landed = true;
-            if(Math.random() < 0.3){
-              splash.push({ x: p.lx, y: p.ly, vx: (Math.random() - 0.5) * 200, vy: -(50 + Math.random() * 140), r: 0.8 + Math.random() * 1.8, life: 0.25 + Math.random() * 0.12, age: 0 });
-            }
-            if(++r.landed === 1) revealSplat(item, r.gi);                 // splat appears only once the rope touches
-          }
-          last = { x: p.lx, y: p.ly, w: p.w * 0.6 };
-          continue;
+      /* collision → deposit reveal (synchronised with real contact) + impact spray */
+      for(const ev of icameDetectContacts(r, t, G)){
+        const p = ev.p, g = groupBy.get(p.gi);
+        if(g && !revealed.has(p.gi)){ revealed.add(p.gi); revealSplat(item, p.gi, (g.t1 - g.t0) + 0.35); }
+        const spd = clampNum(Math.hypot(ev.vx, ev.vy) / 1400, 0.2, 1.1);
+        if(rnd() < (0.12 + 0.35 * (1 - mat.visc)) * (0.5 + spd) * Math.min(1, 0.4 + p.m * 6)){
+          splash.push({ x: p.lx, y: p.ly, vx: (rnd() - 0.5) * 220 * spd, vy: -(40 + rnd() * 130) * (0.5 + spd), r: 0.6 + rnd() * 1.2 + Math.sqrt(p.m) * 2, life: 0.2 + rnd() * 0.25, age: 0 });
         }
-        alive = true;
-        const x = p.x0 + p.vx * age;
-        const y = p.y0 + p.vy * age + 0.5 * G * age * age;
-        const vy = p.vy + G * age;
-        let sdx = p.vx * 0.022, sdy = vy * 0.022;
-        const sl = Math.hypot(sdx, sdy);
-        if(sl > 60){ sdx *= 60 / sl; sdy *= 60 / sl; }
-        const lw = p.w * (1 - 0.3 * age / p.T);
-        ctx.lineWidth = lw;
-        ctx.beginPath(); ctx.moveTo(x - sdx, y - sdy); ctx.lineTo(x, y); ctx.stroke();
-        gx.lineWidth = Math.max(0.6, lw * 0.28);
-        gx.globalAlpha = 0.55;
-        gx.beginPath(); gx.moveTo(x - sdx - lw * 0.18, y - sdy - lw * 0.18); gx.lineTo(x - lw * 0.18, y - lw * 0.18); gx.stroke();
-        if(last){
-          const d = Math.hypot(x - last.x, y - last.y);
-          const link = 22 + p.w * 5;
-          if(d < link){
-            ctx.lineWidth = Math.max(0.5, Math.min(p.w, last.w) * (1 - d / link) * 0.95);
-            ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(x, y); ctx.stroke();
-          }
-        }
-        last = { x, y, w: lw };
+      }
+
+      /* threads between neighbouring parcels (necking as they stretch) */
+      for(let k = 0; k < r.links.length; k++){
+        const L = r.links[k];
+        if(t >= L.br) continue;
+        const A = icameState(r.ps[k], t, G), Bs = icameState(r.ps[k + 1], t, G);
+        if(!A || !Bs || (A.landed && Bs.landed)) continue;
+        const d = Math.hypot(A.x - Bs.x, A.y - Bs.y);
+        const s = clampNum(d / L.Lb, 0, 1);
+        const neck = Math.max(0.1, 1 - Math.pow(s, 1.2 + 1.6 * mat.visc));
+        thread(ctx, A.x, A.y, A.w, Bs.x, Bs.y, Bs.w, neck);
+      }
+
+      /* parcels: heads, body blobs and free droplets (short streaks along velocity) */
+      for(const p of r.all){
+        const s = icameState(p, t, G);
+        if(!s || s.landed) continue;
+        const sp = Math.hypot(s.vx, s.vy);
+        const sl = Math.min(p.w * 3.2 + 2, sp * 0.016);
+        const ux = s.vx / sp, uy = s.vy / sp;
+        ctx.lineWidth = s.w;
+        ctx.beginPath(); ctx.moveTo(s.x - ux * sl, s.y - uy * sl); ctx.lineTo(s.x, s.y); ctx.stroke();
+        gx.lineWidth = Math.max(0.5, s.w * 0.22);
+        gx.beginPath(); gx.moveTo(s.x - ux * sl - s.w * 0.18, s.y - uy * sl - s.w * 0.2); gx.lineTo(s.x - s.w * 0.18, s.y - s.w * 0.2); gx.stroke();
       }
     }
 
     for(let i = splash.length - 1; i >= 0; i--){
-      const s = splash[i];
-      s.age += dt; s.vy += 1400 * dt; s.x += s.vx * dt; s.y += s.vy * dt;
-      if(s.age >= s.life){ splash.splice(i, 1); continue; }
-      ctx.beginPath(); ctx.arc(s.x, s.y, s.r * (1 - s.age / s.life), 0, Math.PI * 2); ctx.fill();
+      const sp = splash[i];
+      sp.age += dt; sp.vy += 1400 * dt; sp.x += sp.vx * dt; sp.y += sp.vy * dt;
+      if(sp.age >= sp.life){ splash.splice(i, 1); continue; }
+      ctx.beginPath(); ctx.arc(sp.x, sp.y, sp.r * (1 - sp.age / sp.life), 0, Math.PI * 2); ctx.fill();
     }
 
     if(alive || splash.length) requestAnimationFrame(frame);
@@ -771,8 +1141,11 @@ function bindICameTargetSelection(){
     if(next){
       state.iCameSettings.target = next;
       state.iCameSettings.targetMode = 'specific';
+      state.iCameSettings.targetPreset = 'custom';   // a hand-drawn area replaces any body-part preset
       saveICameSettings();
       if(mode) mode.value = 'specific';
+      const presetSel = document.getElementById('iCameTargetPreset');
+      if(presetSel){ presetSel.value = 'custom'; presetSel.disabled = false; }
       setICameTargetForItem(iCameFocusItem, next);
       toast('Preferred target area updated');
     }
@@ -843,6 +1216,7 @@ const ICAME_CONTROLS = [
   ['iCameAmountInput', 'amount', 'iCameAmountVal', '%', 'input'],
   ['iCameSizeInput',   'size',   'iCameSizeVal',   '%', 'input'],
   ['iCameDripsInput',  'drips',  'iCameDripsVal',  '%', 'input'],
+  ['iCameWateryInput', 'watery', 'iCameWateryVal', '%', 'input'],
 ];
 function syncICameControls(){
   const S = state.iCameSettings;
@@ -854,6 +1228,11 @@ function syncICameControls(){
   });
   const rr = document.getElementById('iCameRopesRandomToggle');
   if(rr) rr.checked = !!S.ropesRandom;
+  const ageT = document.getElementById('iCameAgeToggle');
+  if(ageT) ageT.checked = !!S.ageMode;
+  const ageI = document.getElementById('iCameAgeInput');
+  if(ageI) ageI.value = S.age;
+  updateICameAgeHint();
   const mode = document.getElementById('iCameTargetMode');
   if(mode) mode.value = S.targetMode === 'specific' ? 'specific' : 'anywhere';
   const preset = document.getElementById('iCameTargetPreset');
@@ -864,7 +1243,94 @@ function syncICameControls(){
   }
 }
 
+/* New settings rows (presets, wateriness, cum by age) are added in the same style as the
+   existing ones, right after "Dripping". Skipped if the page already has them. */
+function ensureICameExtraRows(){
+  if(document.getElementById('iCameWateryInput')) return;
+  const anchor = document.getElementById('iCameDripsInput');
+  const row = anchor && anchor.closest('.setting-row');
+  if(!row) return;
+  const html = `
+    <div class="setting-row">
+      <div class="setting-text">
+        <div class="setting-title">Cum preset</div>
+        <div class="setting-desc">Quick looks that set ropes, amount, size, dripping and wateriness in one go.</div>
+      </div>
+      <select id="iCamePresetSelect" class="setting-input" style="min-width:160px;"></select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-text">
+        <div class="setting-title">Watery cum - <span id="iCameWateryVal">50%</span></div>
+        <div class="setting-desc">0% is thick and opaque, 100% is thin and translucent. Thinner cum breaks into more droplets, spreads wider and runs faster.</div>
+      </div>
+      <input id="iCameWateryInput" type="range" min="0" max="100" step="5" style="width:150px;accent-color:var(--amber);">
+    </div>
+    <div class="setting-row">
+      <div class="setting-text">
+        <div class="setting-title">Cum by age</div>
+        <div class="setting-desc">Scales amount, ropes, force and thickness to roughly match a real ejaculation at your age (18+). It's an approximation, not medical data. <span id="iCameAgeHint"></span></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="iCameAgeInput" type="number" min="18" max="100" step="1" class="setting-input" style="max-width:70px;" placeholder="25">
+        <label class="toggle"><input type="checkbox" id="iCameAgeToggle"><span class="track"></span></label>
+      </div>
+    </div>`;
+  row.insertAdjacentHTML('afterend', html);
+}
+function updateICameAgeHint(){
+  const el = document.getElementById('iCameAgeHint');
+  if(!el) return;
+  const S = state.iCameSettings;
+  if(!S.ageMode){ el.textContent = ''; return; }
+  const f = icameAgeFactors(S.age);
+  el.textContent = `At ${S.age}: about ${Math.round(f.vol * 100)}% of the volume, ${Math.round(f.ropes * 100)}% of the ropes, ${Math.round(f.force * 100)}% of the force.`;
+}
+function bindICameExtras(){
+  const S = state.iCameSettings;
+  const sel = document.getElementById('iCamePresetSelect');
+  if(sel){
+    sel.innerHTML = '<option value="">Custom (your sliders)</option>' + Object.keys(ICAME_PRESETS).map(k => `<option value="${k}">${ICAME_PRESETS[k].label}</option>`).join('');
+    sel.addEventListener('change', () => {
+      const p = ICAME_PRESETS[sel.value];
+      if(!p) return;
+      ['ropes', 'amount', 'size', 'drips', 'watery'].forEach(k => { S[k] = p[k]; });
+      saveICameSettings();
+      syncICameControls();
+      toast(`Preset: ${p.label}`);
+    });
+  }
+  /* moving any slider afterwards means it's no longer exactly the preset */
+  ICAME_CONTROLS.forEach(([id]) => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('input', () => { if(sel) sel.value = ''; });
+    if(el) el.addEventListener('change', () => { if(sel) sel.value = ''; });
+  });
+  const ageT = document.getElementById('iCameAgeToggle');
+  const ageI = document.getElementById('iCameAgeInput');
+  const applyAge = () => {
+    const n = parseInt(ageI && ageI.value, 10);
+    if(!isFinite(n) || n < 18){
+      if(ageI) ageI.value = S.age;
+      toast('Enter an age of 18 or older');
+      if(ageT && S.age < 18) ageT.checked = false;
+      return false;
+    }
+    S.age = Math.min(100, n);
+    if(ageI) ageI.value = S.age;
+    return true;
+  };
+  if(ageI) ageI.addEventListener('change', () => { if(applyAge()){ saveICameSettings(); updateICameAgeHint(); } });
+  if(ageT) ageT.addEventListener('change', () => {
+    if(ageT.checked && !applyAge()){ ageT.checked = false; return; }
+    S.ageMode = ageT.checked;
+    saveICameSettings();
+    updateICameAgeHint();
+    toast(S.ageMode ? `Cum by age on (${S.age})` : 'Cum by age off');
+  });
+}
+
 function bindICameSettings(){
+  ensureICameExtraRows();
   const cd = document.getElementById('iCameCooldownInput');
   const tg = document.getElementById('iCameSplatToggle');
   const mode = document.getElementById('iCameTargetMode');
@@ -998,7 +1464,7 @@ function bindICameSettings(){
   }
   if(resetBtn){
     resetBtn.addEventListener('click', () => {
-      ['ropes', 'ropesRandom', 'amount', 'size', 'drips', 'targetMode', 'targetPreset', 'target'].forEach(k => {
+      ['ropes', 'ropesRandom', 'amount', 'size', 'drips', 'watery', 'targetMode', 'targetPreset', 'target'].forEach(k => {
         if(k === 'target') state.iCameSettings[k] = { ...ICAME_DEFAULTS.target };
         else if(k === 'targetPreset') state.iCameSettings[k] = ICAME_DEFAULTS.targetPreset;
         else state.iCameSettings[k] = ICAME_DEFAULTS[k];
@@ -1008,6 +1474,7 @@ function bindICameSettings(){
       toast('Cum look reset to defaults');
     });
   }
+  bindICameExtras();
   syncICameControls();
 }
 ensureICameDefs();
