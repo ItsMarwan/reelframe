@@ -190,6 +190,24 @@ function loadWatchProgress(){
   catch(e){ return {}; }
 }
 function saveWatchProgress(){ localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify(state.watchProgress)); }
+/* The player reports its position several times a second. Serialising the
+   whole progress table into localStorage that often (it's synchronous)
+   causes constant jank, so progress updates only mark it dirty and the
+   actual write happens at most every few seconds, plus when the video
+   pauses or the tab is hidden/closed. */
+let watchProgressDirty = false, watchProgressTimer = null;
+function flushWatchProgress(){
+  if(watchProgressTimer){ clearTimeout(watchProgressTimer); watchProgressTimer = null; }
+  if(!watchProgressDirty) return;
+  watchProgressDirty = false;
+  try{ saveWatchProgress(); }catch(e){}
+}
+function saveWatchProgressSoon(){
+  watchProgressDirty = true;
+  if(!watchProgressTimer) watchProgressTimer = setTimeout(flushWatchProgress, 5000);
+}
+document.addEventListener('visibilitychange', () => { if(document.hidden) flushWatchProgress(); });
+window.addEventListener('pagehide', flushWatchProgress);
 
 function loadLockEnabled(){ return localStorage.getItem(LOCK_ENABLED_KEY) === '1'; }
 function saveLockEnabled(){ localStorage.setItem(LOCK_ENABLED_KEY, state.lockEnabled ? '1' : '0'); }
@@ -300,7 +318,7 @@ function setWatchProgress(item, pos, duration){
   const percent = Math.min(0.98, pos / duration);
   if(percent < 0.04) return;
   state.watchProgress[key] = { position: pos, duration, percent, updatedAt: Date.now() };
-  saveWatchProgress();
+  saveWatchProgressSoon();
 }
 function clearWatchProgress(item){
   if(!item) return;
@@ -360,7 +378,7 @@ function applyExclusions(){
     images: [...ic].sort((a,b) => a.localeCompare(b)),
     music: [...mc].sort((a,b) => a.localeCompare(b)),
   };
-  const SPECIAL_CATS = ['__fav__', '__history__', '__snapshots__', '__watchlater__', '__seelater__', '__captioned__'];
+  const SPECIAL_CATS = ['__fav__', '__history__', '__snapshots__', '__watchlater__', '__seelater__', '__captioned__', '__icame__'];
   ['videos','images','music'].forEach(tab => {
     const cat = state.cat[tab];
     if(cat && !SPECIAL_CATS.includes(cat) && !state.categoriesByTab[tab].includes(cat)){

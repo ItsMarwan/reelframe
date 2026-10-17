@@ -10,6 +10,8 @@ function getFiltered(tab){
     list = state.videos.filter(v => state.watchLater.has(favKey(v)));
   } else if(tab === 'images' && cat === '__seelater__'){
     list = [...state.images, ...state.snapshots].filter(i => state.seeLater && state.seeLater.has(favKey(i)));
+  } else if(tab === 'images' && cat === '__icame__'){
+    list = iCameItems();
   } else if(tab === 'videos' && cat === '__captioned__'){
     list = state.videos.filter(v => state.captionedPaths && state.captionedPaths.has(v.path));
   } else {
@@ -21,7 +23,7 @@ function getFiltered(tab){
     list = list.filter(isFav).map(i => ({ ...i, _addedTs: state.favoriteTimestamps[favKey(i)] || i.lastModified || 0 }));
   }
   else if(cat === '__history__') list = historyItemsFor(tab);
-  else if(cat && cat !== '__snapshots__' && cat !== '__watchlater__' && cat !== '__seelater__' && cat !== '__captioned__') list = list.filter(i => i.category === cat);
+  else if(cat && cat !== '__snapshots__' && cat !== '__watchlater__' && cat !== '__seelater__' && cat !== '__captioned__' && cat !== '__icame__') list = list.filter(i => i.category === cat);
   const subKey = activeSubfolder(tab);
   if(subKey) list = list.filter(i => subfolderMatches(i, subKey));
   if(state.filters[tab].category && state.filters[tab].category !== 'all'){
@@ -34,6 +36,7 @@ function getFiltered(tab){
   if(state.search){
     list = list.filter(i => i.name.toLowerCase().includes(state.search));
   }
+  if(cat === '__icame__') return list;   // already ranked: most presses, then most recent
   if(cat === '__snapshots__' && state.sort[tab] === 'random') return list;
   if(cat === '__history__' && (tab === 'music' || state.sort[tab] === 'random')) return list;
   return applySort(list.slice(), state.sort[tab]);

@@ -22,6 +22,30 @@ function ensureVideoMeta(item){
   }
 
   item._metaPromise = (async () => {
+    await acquireThumbSlot();
+    try{ return await generateVideoMeta(item); }
+    finally{ releaseThumbSlot(); }
+  })();
+  return item._metaPromise;
+}
+
+/* Only a few videos are decoded at once. Before, every card that scrolled
+   into view started its own hidden <video> immediately, so a screenful of
+   cards meant dozens of simultaneous decodes. */
+const THUMB_MAX_CONCURRENT = 3;
+let thumbActive = 0;
+const thumbWaiters = [];
+function acquireThumbSlot(){
+  if(thumbActive < THUMB_MAX_CONCURRENT){ thumbActive++; return Promise.resolve(); }
+  return new Promise(res => thumbWaiters.push(res));
+}
+function releaseThumbSlot(){
+  const next = thumbWaiters.shift();
+  if(next) next(); else thumbActive--;
+}
+
+function generateVideoMeta(item){
+  return (async () => {
     // Cache check first — a thumbnail (and duration) generated in a past
     // session/refresh is remembered in IndexedDB keyed by path+lastModified,
     // so an unchanged video never has to be re-seeked and redrawn just
@@ -53,11 +77,16 @@ function ensureVideoMeta(item){
       function finish(){
         try{
           const canvas = document.createElement('canvas');
-          canvas.width = v.videoWidth || 320;
-          canvas.height = v.videoHeight || 180;
+          // Thumbnails are shown in small cards — drawing/encoding them at
+          // the video's full resolution (1080p/4K) was slow and bloated
+          // memory and IndexedDB with huge data URLs.
+          const vw = v.videoWidth || 320, vh = v.videoHeight || 180;
+          const scale = Math.min(1, 480 / vw);
+          canvas.width = Math.max(1, Math.round(vw * scale));
+          canvas.height = Math.max(1, Math.round(vh * scale));
           const ctx = canvas.getContext('2d');
           ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-          item.thumb = canvas.toDataURL('image/jpeg', 0.7);
+          item.thumb = canvas.toDataURL('image/jpeg', 0.72);
           saveThumbCache(item); // fire-and-forget — persist for next time
         }catch(e){ /* cross-origin or decode issue — skip thumb */ }
         cleanup();
@@ -69,7 +98,6 @@ function ensureVideoMeta(item){
       }, 6000);
     });
   })();
-  return item._metaPromise;
 }
 
 function retryStalledThumbs(){

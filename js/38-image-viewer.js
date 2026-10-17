@@ -51,10 +51,52 @@ function viewerClampPosition(){
   viewer.y = h <= viewer.H ? (viewer.H - h) / 2 : vClamp(viewer.y, viewer.H - h, 0);
 }
 
+function renderViewerSplats(item = viewer.item){
+  const overlay = vEl('imagePopOverlay');
+  const img = vEl('imagePopImg');
+  if(!overlay || !img) return;
+  if(!item || !state.iCameSettings || !state.iCameSettings.showSplats){
+    const old = document.getElementById('viewerSplatLayer');
+    if(old) old.remove();
+    return;
+  }
+  const entry = iCameEntry ? iCameEntry(item) : null;
+  if(!entry || !Array.isArray(entry.splats) || !entry.splats.length){
+    const old = document.getElementById('viewerSplatLayer');
+    if(old) old.remove();
+    return;
+  }
+  let layer = document.getElementById('viewerSplatLayer');
+  if(!layer){
+    layer = document.createElement('div');
+    layer.id = 'viewerSplatLayer';
+    layer.style.position = 'absolute';
+    layer.style.inset = '0';
+    layer.style.pointerEvents = 'none';
+    layer.style.zIndex = '2';
+    overlay.appendChild(layer);
+  }
+  const w = img.naturalWidth || 1;
+  const h = img.naturalHeight || 1;
+  const shown = entry.splats.slice(-12);
+  const target = iCameTargetForItem ? iCameTargetForItem(item) : null;
+  const targetMarkup = target ? `<div class="icame-target-box" style="left:${(target.x * w).toFixed(1)}px;top:${(target.y * h).toFixed(1)}px;width:${(target.w * w).toFixed(1)}px;height:${(target.h * h).toFixed(1)}px"></div>` : '';
+  layer.style.transform = `translate3d(${viewer.x}px, ${viewer.y}px, 0) scale(${viewer.scale})`;
+  layer.style.width = `${w}px`;
+  layer.style.height = `${h}px`;
+  layer.style.transformOrigin = '0 0';
+  layer.innerHTML = shown.map((p, idx) => {
+    const size = Math.max(22, (p.s || 0.3) * Math.min(w, h));
+    const left = (p.x || 0.5) * w - size / 2;
+    const top = (p.y || 0.5) * h - size / 2;
+    return `<svg class="icame-splat" data-i="${idx}" viewBox="0 0 100 100" style="left:${left.toFixed(1)}px;top:${top.toFixed(1)}px;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px">${splatInner(p, idx)}</svg>`;
+  }).join('') + targetMarkup;
+}
 function viewerRender(animate){
   const img = vEl('imagePopImg');
   img.classList.toggle('is-animating', !!animate);
   img.style.transform = `translate3d(${viewer.x}px, ${viewer.y}px, 0) scale(${viewer.scale})`;
+  renderViewerSplats(viewer.item);
   const zoomed = viewer.scale > viewer.fit * 1.02;
   vEl('imagePopOverlay').classList.toggle('is-zoomed', zoomed);
   vEl('viewerZoomLevel').textContent = `${Math.round(viewer.scale * 100)}%`;
@@ -123,6 +165,8 @@ function viewerStartInertia(vx, vy){
 async function openImagePop(item){
   const overlay = vEl('imagePopOverlay'), img = vEl('imagePopImg');
   if(!overlay || !img || !item) return;
+  const existingSplatLayer = document.getElementById('viewerSplatLayer');
+  if(existingSplatLayer) existingSplatLayer.remove();
   let src = (typeof variantActiveImageUrl === 'function' && variantActiveImageUrl(item)) || ensureItemUrl(item);
   if(!src && item.pairRemote){
     try{ src = await ensureItemUrlAsync(item); }catch(e){ toast('Couldn\'t load that photo from the paired device.'); return; }
@@ -149,6 +193,7 @@ async function openImagePop(item){
     viewer.scale = viewer.fit; viewer.atFit = true;
     viewerClampPosition();
     viewerRender(false);
+    renderViewerSplats(item);
     overlay.classList.add('is-ready');
   };
   img.onerror = () => { if(viewer.open){ toast('Couldn\'t open that photo.'); closeImagePop(); } };
@@ -163,6 +208,8 @@ function closeImagePop(){
   if(!overlay || overlay.hidden) return;
   viewerStopInertia();
   viewer.open = false; viewer.item = null;
+  const oldSplatLayer = document.getElementById('viewerSplatLayer');
+  if(oldSplatLayer) oldSplatLayer.remove();
   viewer.pointers.clear(); viewer.gesture = null;
   overlay.hidden = true;
   overlay.classList.remove('is-ready', 'is-zoomed', 'is-dragging');

@@ -714,6 +714,7 @@ function initCustomPlayer(){
     showControls();
   });
   video.addEventListener('pause', () => {
+    if(typeof flushWatchProgress === 'function') flushWatchProgress();
     setPlayPauseIcons();
     if(nextUpPromptState.timer){ clearTimeout(nextUpPromptState.timer); nextUpPromptState.timer = null; }
     showControls(true);

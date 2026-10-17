@@ -279,6 +279,7 @@ function headingFor(tab){
   if(cat === '__watchlater__') return 'Watch later';
   if(cat === '__seelater__') return 'See later';
   if(cat === '__captioned__') return 'Captioned';
+  if(cat === '__icame__') return 'I came';
   if(cat){
     const sub = activeSubfolder(tab);
     return sub ? subfolderLabel(sub) : `${cat}`;
@@ -330,6 +331,7 @@ function updateSortControlsForTab(tab){
     tab === 'images' ? '#imagesGrid .sort-group' : null
   );
   if(!group) return;
+  group.hidden = state.cat[tab] === '__icame__';   // that list is ranked, sorting doesn't apply
 
   const special = isTimeOrderedCategory(state.cat[tab]);
   const randomBtn = group.querySelector('[data-sort="random"]');

@@ -155,6 +155,7 @@ function openFocus(item, opts = {}){
       seeBtn.innerHTML = seeLaterSVG(isSeeLater(item));
     };
   }
+  if(typeof bindICameButton === 'function') bindICameButton(item);
   const shareBtn = document.getElementById('focusShareBtn');
   if(shareBtn){
     shareBtn.onclick = () => openShareChoiceModal(item);

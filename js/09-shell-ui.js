@@ -97,6 +97,7 @@ function renderSidebar(){
   const watchCountEl = document.getElementById('watchLaterCount');
   if(watchCountEl) watchCountEl.textContent = state.watchLater.size;
   updateCaptionedCount();
+  if(typeof updateICameCount === 'function') updateICameCount();
 
   const countFor = (cat) => cat === null ? items.length : items.filter(i => i.category === cat).length;
 
@@ -228,6 +229,8 @@ function renderSidebar(){
       goToGrid('images');
     };
   }
+
+  if(typeof bindICameSidebar === 'function') bindICameSidebar();
 
   const uncategorizedBtn = document.querySelector('.cat-item[data-special="uncategorized"]');
   if(uncategorizedBtn){

@@ -231,6 +231,9 @@ function retryVisibleStalledThumbs(){
   document.querySelectorAll('.vcard, .pin-item').forEach(el => {
     const item = el._rfItem;
     if(!item) return;
+    // Cheap checks first, so we only measure layout for cards that actually need a retry.
+    if(item.type === 'video' && (item.thumb || item.broken || item._metaPromise)) return;
+    if(item.type === 'image' && (!item.pairRemote || item.thumb)) return;
     if(!isElementVisibleOnScreen(el)) return;
 
     if(item.type === 'video'){

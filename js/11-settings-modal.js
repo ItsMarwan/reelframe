@@ -25,6 +25,7 @@ async function exportLibraryData(){
     favorites: [...state.favorites],
     watchLater: [...state.watchLater],
     seeLater: [...state.seeLater],
+    iCame: state.iCame || {},
     watchLaterConsumed: [...state.watchLaterConsumed],
     seeLaterConsumed: [...state.seeLaterConsumed],
     categoryFavorites: [...state.categoryFavorites],
@@ -154,6 +155,16 @@ async function importLibraryData(file){
     if(Array.isArray(parsed.watchLater)){
       state.watchLater = isReplace ? new Set(parsed.watchLater) : unionSet(state.watchLater, parsed.watchLater);
       saveWatchLater();
+    }
+    if(parsed.iCame && typeof parsed.iCame === 'object' && !Array.isArray(parsed.iCame)){
+      if(isReplace) state.iCame = {};
+      Object.entries(parsed.iCame).forEach(([k, v]) => {
+        if(!v || typeof v !== 'object') return;
+        const cur = state.iCame[k];
+        if(!cur) state.iCame[k] = { count: v.count || 1, first: v.first || v.last || 0, last: v.last || 0, splats: Array.isArray(v.splats) ? v.splats : [] };
+        else { cur.count = Math.max(cur.count || 0, v.count || 0); cur.last = Math.max(cur.last || 0, v.last || 0); }
+      });
+      saveICame();
     }
     if(Array.isArray(parsed.seeLater)){
       state.seeLater = isReplace ? new Set(parsed.seeLater) : unionSet(state.seeLater, parsed.seeLater);
@@ -456,7 +467,7 @@ function bindSettingsModal(){
       { title: 'Whole-image labels', options: ['Porn', 'Hentai', 'Sexy'] },
     ];
     const regionGroups = [
-      { title: 'Exposed-body boxes', options: ['FEMALE_BREAST_EXPOSED', 'FEMALE_GENITALIA_EXPOSED', 'MALE_GENITALIA_EXPOSED', 'BUTTOCKS_EXPOSED', 'ANUS_EXPOSED', 'MALE_BREAST_EXPOSED'] },
+      { title: 'Body and NSFW labels', options: NUDENET_CLASS_NAMES },
     ];
 
     const renderGroup = (title, options, groupKey) => `
@@ -473,7 +484,7 @@ function bindSettingsModal(){
 
     nsfwClassList.innerHTML = [
       renderGroup('Whole-image labels', imageGroups[0].options, 'image'),
-      renderGroup('Exposed-body boxes', regionGroups[0].options, 'region'),
+      renderGroup('Body and NSFW labels', regionGroups[0].options, 'region'),
     ].join('');
   }
 

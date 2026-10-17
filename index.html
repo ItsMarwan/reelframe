@@ -28,7 +28,7 @@
 <meta name="description" content="ReelFrame is a fast, local media library for organizing, browsing, and viewing your photos and videos.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#14120f">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
@@ -132,6 +132,10 @@
           <li class="cat-row"><button class="cat-item" data-special="seelater" type="button">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2.3" stroke="currentColor" stroke-width="1.5"/></svg>
             See later <span class="cat-count" id="seeLaterCount">0</span>
+          </button></li>
+          <li class="cat-row"><button class="cat-item" data-special="icame" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" data-icame-icon aria-hidden="true"></svg>
+            I came <span class="cat-count" id="iCameCount">0</span>
           </button></li>
           <li class="cat-row"><button class="cat-item" data-special="history" type="button">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 0 3-6.7" stroke="currentColor" stroke-width="1.5"/><path d="M3 4v5h5M12 8v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -399,6 +403,7 @@
                   <button id="focusCensorBtn" class="btn btn-sm" type="button" title="Censor this photo — saved as a variant"><svg class="icon-cc" width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 20 20 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><svg class="icon-spinner" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" stroke-dasharray="34 20" stroke-linecap="round"/></svg><span>Censor</span></button>
                   <button id="focusVariantBtn" class="btn btn-sm" type="button" title="Pick other photos from your library as variants">Add variant</button>
                   <button id="focusSeeLaterBtn" class="btn btn-sm" type="button" title="See later">See later</button>
+                  <button id="focusICameBtn" class="btn btn-sm" type="button" title="Add this photo to cum list"><svg class="icame-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"></svg><span class="icame-label">I came</span></button>
                   <button id="focusShareBtn" class="btn btn-sm" type="button" title="Share this photo">Share</button>
                   <button id="focusPartyBtn" class="btn btn-sm" type="button" title="Watch party — sync this photo with another device">Party</button>
                   <button id="focusSaveBtn" class="btn btn-sm" type="button" hidden title="Save to your library">Save a copy</button>
@@ -999,6 +1004,94 @@
       </div>
       <div class="setting-row">
         <div class="setting-text">
+          <div class="setting-title">“I came” cooldown (hours)</div>
+          <div class="setting-desc">How long before the same photo can be used again. Use 0 for no cooldown, or 0.5 for 30 minutes.</div>
+        </div>
+        <input id="iCameCooldownInput" type="number" min="0" step="0.5" class="setting-input" style="max-width:90px;" placeholder="8">
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Show cum on photos</div>
+          <div class="setting-desc">Each “I came” press lands cum on the photo, and it stays there. Turn this off to hide it.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="iCameSplatToggle">
+          <span class="track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Preferred cum area</div>
+          <div class="setting-desc">Choose a body part, a custom zone, or let it fire anywhere.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+          <select id="iCameTargetMode" class="setting-input" style="min-width:140px;">
+            <option value="anywhere">Anywhere</option>
+            <option value="specific">Specific area</option>
+          </select>
+          <select id="iCameTargetPreset" class="setting-input" style="min-width:160px;">
+            <option value="custom">Custom location</option>
+          </select>
+          <div style="display:flex;gap:6px;">
+            <button id="iCameSetTargetBtn" class="btn btn-sm" type="button">Set area</button>
+            <button id="iCameClearTargetBtn" class="btn btn-sm" type="button">Clear</button>
+          </div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Ropes per press</div>
+          <div class="setting-desc">How many separate ropes are shot one after another each time (1–12).</div>
+        </div>
+        <input id="iCameRopesInput" type="number" min="1" max="12" step="1" class="setting-input" style="max-width:90px;" placeholder="4">
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Randomize rope count</div>
+          <div class="setting-desc">Vary the number of ropes a little on every press instead of always using the exact number above.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="iCameRopesRandomToggle">
+          <span class="track"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Amount - <span id="iCameAmountVal">100%</span></div>
+          <div class="setting-desc">How much liquid is in each rope: thicker, longer streams.</div>
+        </div>
+        <input id="iCameAmountInput" type="range" min="20" max="250" step="5" style="width:150px;accent-color:var(--amber);">
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Cum size - <span id="iCameSizeVal">100%</span></div>
+          <div class="setting-desc">How big each mark is when it lands on the photo. Applies to new presses.</div>
+        </div>
+        <input id="iCameSizeInput" type="range" min="40" max="250" step="5" style="width:150px;accent-color:var(--amber);">
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Dripping - <span id="iCameDripsVal">70%</span></div>
+          <div class="setting-desc">How many drips run down from each mark, and how long they get (0 = none). Applies to new presses.</div>
+        </div>
+        <input id="iCameDripsInput" type="range" min="0" max="100" step="5" style="width:150px;accent-color:var(--amber);">
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Reset cum look</div>
+          <div class="setting-desc">Puts ropes, amount, size and dripping back to their defaults.</div>
+        </div>
+        <button id="iCameResetLookBtn" class="btn btn-sm" type="button">Reset</button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
+          <div class="setting-title">Clean cum</div>
+          <div class="setting-desc">Removes the cum marks from all saved “I came” photos.</div>
+        </div>
+        <button id="iCameClearSplattersBtn" class="btn btn-sm" type="button">Clean</button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-text">
           <div class="setting-title">Mini player</div>
           <div class="setting-desc">Keep a video playing in a small floating window when you leave Watch. Turn this off to just pause instead.</div>
         </div>
@@ -1274,5 +1367,6 @@
 <script src="js/40-image-picker.js"></script>
 <script src="js/41-image-adjuster.js"></script>
 <script src="js/42-website-wallpaper.js"></script>
+<script src="js/43-i-came.js"></script>
 </body>
 </html>

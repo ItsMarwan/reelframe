@@ -76,7 +76,7 @@ async function initAppUI(){
     startThumbRetryWatcher();
     appBound = true;
     (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => {
-      prewarmCaptionModel();
+      // (Caption model is no longer preloaded at startup — it loads on first use.)
       buildTranscriptIndex();
       maybeAutoScanNsfwOnStartup();
     });

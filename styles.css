@@ -225,7 +225,7 @@ ul.category-list, ul.special-list{ list-style: none; margin: 0; padding: 0; disp
 .thumb-fallback.thumb-broken{ flex-direction: column; gap: 6px; }
 .thumb-broken-label{ font-size: 11px; }
 .vcard-badges{ position: absolute; top: 7px; left: 7px; display: flex; gap: 5px; z-index: 2; }
-.vcard-badge{ background: rgba(20,18,15,.82); backdrop-filter: blur(3px); color: var(--ink); font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: var(--r-pill); display: inline-flex; align-items: center; gap: 4px; }
+.vcard-badge{ background: rgba(20,18,15,.88); color: var(--ink); font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: var(--r-pill); display: inline-flex; align-items: center; gap: 4px; }
 .vcard-badge.nsfw-badge-video, .nsfw-badge{ background: rgba(217,104,79,.85); color: #2a0f08; }
 .vcard-badge.for-you-badge{ background: rgba(232,163,61,.9); color: var(--amber-ink); }
 .vcard-dur{ position: absolute; bottom: 7px; right: 7px; background: rgba(20,18,15,.82); color: var(--ink); font-size: 11px; padding: 2px 6px; border-radius: 4px; z-index: 2; font-variant-numeric: tabular-nums; }
@@ -381,7 +381,7 @@ ul.category-list, ul.special-list{ list-style: none; margin: 0; padding: 0; disp
 #app.has-music-bar .footer-container{ margin-bottom: 74px; }
 
 /* ---------- modals ---------- */
-.modal-backdrop{ position: fixed; inset: 0; background: rgba(8,7,5,.68); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 80; padding: 20px; }
+.modal-backdrop{ position: fixed; inset: 0; background: rgba(8,7,5,.74); display: flex; align-items: center; justify-content: center; z-index: 80; padding: 20px; }
 .modal-backdrop[hidden]{ display: none; }
 .modal{ background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-lg); width: 100%; max-width: 480px; max-height: 84vh; display: flex; flex-direction: column; box-shadow: var(--shadow-2); }
 .modal.modal-lg{ max-width: 720px; }
@@ -753,7 +753,7 @@ img, video, canvas,
 .pin-see-later{
   position:absolute; top:8px; right:44px; z-index:2;
   width:30px; height:30px; border-radius:50%;
-  background: rgba(10,10,12,.55); backdrop-filter: blur(2px);
+  background: rgba(10,10,12,.6);
   border:none; color:#fff; display:flex; align-items:center; justify-content:center;
   opacity:0; transition: opacity .15s ease, background .15s ease;
 }
@@ -1346,3 +1346,27 @@ ul.sub-list{
 .wp-controls input[type=range]{ width: 100%; accent-color: var(--amber); }
 .wp-foot .btn-danger{ margin-right: auto; }
 .wp-foot .btn[hidden]{ display: none; }
+
+/* "I came" button */
+.focus-actions .btn#focusICameBtn.is-cooling{ opacity:.65; cursor:not-allowed; }
+
+#focusICameBtn{ display:inline-flex; align-items:center; gap:6px; }
+#focusICameBtn .icame-icon{ flex:none; }
+
+/* Append at the very END of your stylesheet (it overrides the old splat rules) */
+#focusSplatLayer{ position:absolute; overflow:hidden; pointer-events:none; z-index:3; mix-blend-mode:normal; }
+#focusSplatLayer[hidden]{ display:none; }
+.icame-splat{
+  position:absolute; overflow:visible; fill:#f7f4ec; opacity:.8; transform-origin:50% 50%;
+  filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.4));
+}
+.icame-splat.is-hidden{ visibility:hidden; }
+.icame-splat.is-new{ animation: icameSplatLand .5s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes icameSplatLand{
+  from{ transform:scale(.2); opacity:0; }
+  30%{ opacity:.8; }
+  to{ transform:scale(1); opacity:.8; }
+}
+.icame-drip{ transform-box:fill-box; transform-origin:50% 0; }
+.icame-splat.is-new .icame-drip{ animation: icameDrip 3.2s ease-in .5s both; }
+@keyframes icameDrip{ from{ transform:scaleY(.05); } to{ transform:scaleY(1); } }
