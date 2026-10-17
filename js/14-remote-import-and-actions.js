@@ -510,14 +510,28 @@ async function fetchRemoteList(path = ''){
   const base = remoteHostState.base; if(!base) throw new Error('Not connected');
   const url = `${base}/api/list${path ? '?path=' + encodeURIComponent(path) : ''}`;
   const statusEl = document.getElementById('remoteHostStatus');
+  const label = base.replace(/^https?:\/\//i, '');
   try{
     const res = await fetch(url, { credentials: 'omit' });
     if(res.status === 403){ if(statusEl) statusEl.textContent = 'Host denied access — the host needs to approve your device.'; return null; }
+    if(!res.ok){
+      if(statusEl) statusEl.textContent = `The device at ${label} responded, but it rejected the request (${res.status}).`;
+      return null;
+    }
+    const contentType = res.headers.get('content-type') || '';
+    if(contentType && !contentType.includes('application/json')){
+      if(statusEl) statusEl.textContent = `The host at ${label} did not return the expected Midnight file list format.`;
+      return null;
+    }
     const data = await res.json();
-    return data.items || [];
+    if(!data || !Array.isArray(data.items)){
+      if(statusEl) statusEl.textContent = `The host at ${label} did not return a valid file list.`;
+      return null;
+    }
+    return data.items;
   }catch(err){
-    console.error('remote list failed', err);
-    if(statusEl) statusEl.textContent = 'Could not contact that host. Check the address and that the server is running.';
+    console.warn('[remote] list fetch failed:', err && err.message ? err.message : err);
+    if(statusEl) statusEl.textContent = `Could not reach ${label}. Check that the server is running and the IP/port is correct.`;
     return null;
   }
 }
@@ -650,7 +664,10 @@ function bindRemoteHostModal(){
     remoteHostState.base = base;
     statusEl.textContent = 'Connecting…';
     const items = await fetchRemoteList('');
-    if(items === null) return; // error shown by fetchRemoteList
+    if(items === null){
+      remoteHostState.base = null;
+      return;
+    }
     renderRemoteList(items, '');
   });
 

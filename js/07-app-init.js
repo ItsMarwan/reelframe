@@ -203,6 +203,23 @@ function syncViewFromURL(ev){
   const legalDoc = params.get('l');
   const cParam = params.get('c');
 
+  const remoteHostValue = [
+    'midnight', 'host', 'remote', 'remoteHost', 'device', 'connect', 'ip'
+  ].map(key => params.get(key)).find(value => !!(value && value.trim()));
+  if(remoteHostValue){
+    const input = document.getElementById('remoteHostInput');
+    const connectBtn = document.getElementById('remoteHostConnectBtn');
+    const backdrop = document.getElementById('remoteHostModalBackdrop');
+    if(backdrop) backdrop.hidden = false;
+    if(input) input.value = remoteHostValue.trim();
+    setTimeout(() => {
+      if(connectBtn) connectBtn.click();
+      else if(backdrop){ backdrop.hidden = false; }
+    }, 60);
+    clearUrlParams();
+    return;
+  }
+
   const receiveCode = params.get('receive');
   if(receiveCode){
     document.getElementById('receiveShareBtn')?.click();

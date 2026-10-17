@@ -385,6 +385,7 @@ function bindMobileShell(){
     if(document.querySelector('.modal-backdrop:not([hidden])') || (document.getElementById('lockGate') && !document.getElementById('lockGate').hidden)) return;
     const open = menu.hidden;
     menu.hidden = !open;
+    menu.classList.toggle('open', open);
     menuBtn.setAttribute('aria-expanded', String(open));
     backdrop.hidden = !open;
     if(open){
@@ -396,6 +397,7 @@ function bindMobileShell(){
   document.addEventListener('click', (e) => {
     if(!menu.contains(e.target) && e.target !== menuBtn && !menuBtn.contains(e.target)) {
       menu.hidden = true;
+      menu.classList.remove('open');
       menuBtn.setAttribute('aria-expanded', 'false');
     }
   });
