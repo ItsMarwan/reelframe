@@ -345,8 +345,9 @@ ul.category-list, ul.special-list{ list-style: none; margin: 0; padding: 0; disp
 #nextUpCountdown{ color: var(--ink-faint); font-size: 13px; }
 
 /* ---------- mini player ---------- */
-#miniPlayerBar{ position: fixed; bottom: 18px; right: 18px; width: 320px; background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-2); z-index: 60; overflow: hidden; opacity: 0; transform: translateY(12px); transition: opacity .2s, transform .2s; }
-#miniPlayerBar.entering, #miniPlayerBar.positioned{ opacity: 1; transform: none; }
+#miniPlayerBar{ position: fixed; bottom: 18px; right: 18px; width: 320px; background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-2); z-index: 60; overflow: hidden; opacity: 1; }
+#miniPlayerBar.entering{ animation: miniPlayerIn .25s ease-out; }
+@keyframes miniPlayerIn{ from{ opacity: 0; transform: translateY(12px); } to{ opacity: 1; transform: none; } }
 #miniPlayerBar.dragging{ transition: none; }
 .mini-head{ display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--bg-2); cursor: grab; }
 #miniPlayerTitle{ flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

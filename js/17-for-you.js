@@ -356,6 +356,15 @@ function updateSortControlsForTab(tab){
 }
 
 function renderActiveGrid(){
+  rememberGridScroll();
+  gridScrollKey = null;               // pause scroll tracking while the grid is rebuilt/restored
+  renderActiveGridInner();
+  stampGridHistory();
+  const key = gridKeyOf(gridNavFor(state.tab));
+  setTimeout(() => { if(visibleGridTab() === state.tab) gridScrollKey = key; }, 250);
+}
+
+function renderActiveGridInner(){
   renderFilterControls();
   if(state.tab === 'videos'){
     updateSortControlsForTab('videos');   // NEW

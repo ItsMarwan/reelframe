@@ -66,7 +66,8 @@ async function initAppUI(){
     bindWatchNsfwGate();
     bindNsfwRegionScanButtons();
     consumePairParamIfPresent();
-    window.addEventListener('popstate', syncViewFromURL);
+    bindGridScrollMemory();
+    window.addEventListener('popstate', (e) => syncViewFromURL(e));
     // Keep retrying any video/pair thumbnail that never came in — but only
     // for cards actually visible on screen right now, checked every few
     // seconds. Without this, a thumb that failed once (a stalled video
@@ -81,6 +82,93 @@ async function initAppUI(){
     });
   }
   syncViewFromURL();
+}
+
+/* ==========================================================================
+   Grid navigation memory
+   - Every grid view (tab + category + subfolder) remembers how far it was
+     scrolled and how many cards were loaded. Returning to it (Back, the
+     in-app back buttons, clicking Home/All again) restores that spot; a view
+     you've never visited starts at the top.
+   - Each history entry for a grid is stamped with {tab, cat, sub}, so
+     browser Back/Forward rebuilds the right grid, not just whatever was last
+     on screen.
+   ========================================================================== */
+const gridScrollMemo = new Map();   // 'tab|cat|sub' -> { top, rendered }
+let gridScrollKey = null;           // key whose scroll we're tracking (null = paused while re-rendering)
+let lastGridNav = null;
+
+function gridNavFor(tab){
+  const sel = state.subcat && state.subcat[tab];
+  const cat = state.cat[tab] || null;
+  return { tab, cat, sub: (sel && sel.key && sel.cat === cat) ? sel.key : null };
+}
+function gridKeyOf(nav){ return `${nav.tab}|${nav.cat || ''}|${nav.sub || ''}`; }
+function visibleGridTab(){
+  const shown = (id) => { const el = document.getElementById(id); return !!el && !el.hidden; };
+  if(shown('videosGrid')) return 'videos';
+  if(shown('imagesGrid')) return 'images';
+  if(shown('musicGrid')) return 'music';
+  return null;
+}
+function renderedCountFor(tab){
+  if(tab === 'videos' && typeof videoGridState !== 'undefined') return videoGridState.rendered || 0;
+  if(tab === 'images' && typeof imageGridState !== 'undefined') return imageGridState.rendered || 0;
+  if(tab === 'music' && typeof musicGridState !== 'undefined') return musicGridState.rendered || 0;
+  return 0;
+}
+/* Saves the live scroll position under the key of the grid actually on screen. */
+function rememberGridScroll(){
+  if(!gridScrollKey) return;
+  const tab = gridScrollKey.split('|')[0];
+  if(visibleGridTab() !== tab) return;
+  const m = document.querySelector('.main');
+  if(!m) return;
+  gridScrollMemo.set(gridScrollKey, { top: m.scrollTop, rendered: renderedCountFor(tab) });
+}
+function bindGridScrollMemory(){
+  const m = document.querySelector('.main');
+  if(!m || m.__gridScrollBound) return;
+  m.__gridScrollBound = true;
+  let queued = false;
+  m.addEventListener('scroll', () => {
+    if(queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; rememberGridScroll(); });
+  }, { passive: true });
+}
+/* Queues a restore for the next grid render, or clears it if there's nothing saved. */
+function queueGridScrollFor(nav, forceTop){
+  const memo = forceTop ? null : gridScrollMemo.get(gridKeyOf(nav));
+  if(memo){
+    pendingGridRestore = { tab: nav.tab, top: memo.top };
+    state.gridRenderedCount[nav.tab] = memo.rendered;
+  } else {
+    pendingGridRestore = null;
+  }
+  return !!memo;
+}
+/* Is the current history entry one of the grid pages (not a video/photo/legal page)? */
+function currentUrlIsGridEntry(){
+  const p = new URLSearchParams(location.search);
+  return !(p.get('v') || p.get('p') || p.get('l'));
+}
+/* Called after every grid render: stamp the current history entry. */
+function stampGridHistory(){
+  lastGridNav = gridNavFor(state.tab);
+  if(!currentUrlIsGridEntry()) return;
+  try{ history.replaceState(Object.assign({}, history.state || {}, { nav: lastGridNav }), ''); }catch(e){}
+}
+/* Rebuilds a grid from a history stamp (browser Back/Forward). */
+function applyGridNav(nav){
+  state.cat[nav.tab] = nav.cat || null;
+  if(!state.subcat) state.subcat = { videos: null, images: null, music: null };
+  state.subcat[nav.tab] = nav.sub ? { cat: nav.cat, key: nav.sub } : null;
+  setTab(nav.tab, { skipRender:true });
+  switchViewsForTab();
+  const restored = queueGridScrollFor(nav, false);
+  renderActiveGrid();
+  if(!restored) scrollMainTop();
 }
 
 function scrollMainTop(){
@@ -107,15 +195,8 @@ function openLegalDoc(doc, opts = {}){
   if(opts.push !== false) history.pushState(null, '', `?l=${normalized}`);
 }
 
-function goToGrid(tab){
-  pendingGridRestore = { tab, top: state.scrollPos[tab] || 0 };
-  const viewId = tab === 'videos' ? 'videosGrid' : tab === 'images' ? 'imagesGrid' : tab === 'view' ? 'viewGrid' : 'musicGrid';
-  showView(viewId);
-  pushCategoryUrl(tab);
-  renderActiveGrid();
-}
 
-function syncViewFromURL(){
+function syncViewFromURL(ev){
   const params = new URLSearchParams(location.search);
   const vPath = params.get('v');
   const pPath = params.get('p');
@@ -152,15 +233,17 @@ function syncViewFromURL(){
     openLegalDoc(legalDoc, { push:false });
     return;
   }
+  const stamped = ev && ev.state && ev.state.nav;
+  if(stamped && ['videos','images','music'].includes(stamped.tab)){
+    applyGridNav(stamped);
+    return;
+  }
   if(cParam){
     const sep = cParam.indexOf(':');
     const tab = sep === -1 ? cParam : cParam.slice(0, sep);
     const cat = sep === -1 ? null : cParam.slice(sep + 1);
     if(tab === 'videos' || tab === 'images' || tab === 'music'){
-      state.cat[tab] = cat || null;
-      setTab(tab, { skipRender:true });
-      switchViewsForTab();
-      renderActiveGrid();
+      applyGridNav({ tab, cat: cat || null, sub: null });
       return;
     }
   }
@@ -310,7 +393,19 @@ function bindTabAndSortEvents(){
 }
 
 function switchViewsForTab(){
+  rememberGridScroll();
   const t = state.tab;
+  /* Leaving the watch page this way (browser Back, tab switch) bypasses
+     showView(), so hand the video to the mini player here too instead of
+     letting it be hidden/paused. */
+  const watchEl = document.getElementById('videoWatch');
+  if(watchEl && !watchEl.hidden){
+    const pv = document.getElementById('videoPlayer');
+    if(pv && pv.src && !pv.ended) dockMiniPlayer();
+    else stopActiveVideo();
+    if(typeof clearNextUpPrompt === 'function') clearNextUpPrompt({ dismissed: true });
+    if(typeof hideCaptionProgress === 'function') hideCaptionProgress();
+  }
   document.getElementById('videosGrid').hidden = t !== 'videos';
   document.getElementById('videoWatch').hidden = true;
   document.getElementById('imagesGrid').hidden = t !== 'images';
@@ -343,19 +438,21 @@ function pushCategoryUrl(tab){
   else clearUrlParams();
 }
 
-function goToGrid(tab){
-  pendingGridRestore = { tab, top: state.scrollPos[tab] || 0 };
+function goToGrid(tab, opts = {}){
+  rememberGridScroll();   // save where the grid we're leaving was scrolled (before any state changes)
+  const restored = queueGridScrollFor(gridNavFor(tab), !!opts.top);
   const viewId = tab === 'videos' ? 'videosGrid' : tab === 'images' ? 'imagesGrid' : tab === 'view' ? 'viewGrid' : 'musicGrid';
   showView(viewId);
-  pushCategoryUrl(tab);          // was clearUrlParams()
+  pushCategoryUrl(tab);
   renderActiveGrid();
+  if(!restored) scrollMainTop();   // a view you haven't been in yet starts at the top
 }
 
 function goToCategory(tab, cat){
   if(!cat) return;
   state.cat[tab] = cat;
   setTab(tab, { skipRender:true });
-  goToGrid(tab);
+  goToGrid(tab, { top:true });
 }
 /* Show / hide password on the lock screen. Delegated so it keeps working if
    the lock gate is ever rebuilt from its template. */

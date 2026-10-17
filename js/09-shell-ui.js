@@ -36,6 +36,7 @@ function toggleFooter(){
 }
 
 function showView(id){
+  rememberGridScroll();
   if(id === 'videoWatch' && miniPlayerActive) undockMiniPlayer();
   const leavingWatch = !document.getElementById('videoWatch').hidden && id !== 'videoWatch';
   if(leavingWatch){

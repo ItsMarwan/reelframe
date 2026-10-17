@@ -3,7 +3,7 @@
    ========================================================================== */
 const expandedFolders = new Set();
 
-function buildFolderTree(){
+function buildManageFoldersTree(){
   const root = {};   // name -> node
   let rootFileCount = 0;
 

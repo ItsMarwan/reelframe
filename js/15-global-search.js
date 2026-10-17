@@ -146,7 +146,7 @@ function bindGlobalSearch(){
 
 function renderFoldersModalList(){
   const listEl = document.getElementById('foldersModalList');
-  const { root, rootFileCount } = buildFolderTree();
+  const { root, rootFileCount } = buildManageFoldersTree();
   const topNodes = Object.values(root).sort((a,b) => a.name.localeCompare(b.name));
 
   let html = '';
